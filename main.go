@@ -13,6 +13,13 @@ func main() {
 
      fmt.Println("MAIN");
      c := &oauth.Consumer{
-       ConsumerKey: *consumerKey, ConsumerSecret: *consumerSecret }
+       ConsumerKey: *consumerKey,
+       ConsumerSecret: *consumerSecret,
+       RequestTokenUrl: "https://www.google.com/accounts/OAuthGetRequestToken",
+       CallbackUrl: "oob",
+       AdditionalParams: make(map[string]string),
+     }
+
+     c.AdditionalParams["scope"] = "https://www.googleapis.com/auth/latitude"
      c.GetRequestToken()
 }
