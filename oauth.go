@@ -6,7 +6,6 @@ import (
        "fmt"
        "http"
        "io/ioutil"
-       "log"
        "os"
        "rand"
        "sort"
@@ -40,22 +39,11 @@ type Consumer struct {
      RequestTokenUrl string
      CallbackUrl string
      AdditionalParams map[string]string
-     
 }
 
 type UnauthorizedToken struct {
      Token string
      TokenSecret string
-}
-
-func baseParams() *OrderedParams {
-  params := NewOrderedParams()
-  params.Add(VERSION_PARAM, OAUTH_VERSION)
-  params.Add(SIGNATURE_METHOD_PARAM, SIGNATURE_METHOD)
-  params.Add(TIMESTAMP_PARAM, strconv.Itoa64(time.Seconds()))
-  params.Add(NONCE_PARAM, strconv.Itoa64(rand.Int63()))
-  
-  return params
 }
 
 func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
@@ -66,27 +54,14 @@ func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
      params.Add(CONSUMER_KEY_PARAM, c.ConsumerKey)
      params.Add(CALLBACK_PARAM, c.CallbackUrl)
 
-     key := escape(c.ConsumerSecret) + "&" // no token secret when requesting
+     key := escape(c.ConsumerSecret) + "&" // We don't have a token_secret yet
 
      base_string := c.requestString("GET", c.RequestTokenUrl, params)
-     signature := sign(base_string, key)
-     params.Add(SIGNATURE_PARAM, signature)
+     params.Add(SIGNATURE_PARAM, sign(base_string, key))
 
-     resp, err := get(c.RequestTokenUrl, params)
-     defer resp.Body.Close()
-
-     if err != nil {
-        log.Fatal(err)
-        return nil, err
-     }
-
-     contentbytes, err := ioutil.ReadAll(resp.Body)
-     if err != nil {
-        return nil, err
-     }
-     contents := string(contentbytes)
+     resp, err := getBody(c.RequestTokenUrl, params)
      
-     parts, err := http.ParseQuery(contents)
+     parts, err := http.ParseQuery(*resp)
      if err != nil {
         return nil, err
      }
@@ -105,6 +80,16 @@ func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
            TokenSecret: oauthTokenSecret,
      }
      return token, nil
+}
+
+func baseParams() *OrderedParams {
+  params := NewOrderedParams()
+  params.Add(VERSION_PARAM, OAUTH_VERSION)
+  params.Add(SIGNATURE_METHOD_PARAM, SIGNATURE_METHOD)
+  params.Add(TIMESTAMP_PARAM, strconv.Itoa64(time.Seconds()))
+  params.Add(NONCE_PARAM, strconv.Itoa64(rand.Int63()))
+  
+  return params
 }
 
 func sign(message string, key string) string {
@@ -131,6 +116,20 @@ func (c *Consumer) requestString(method string, url string, params *OrderedParam
          result += escape(fmt.Sprintf("%s=%s", key, params.Get(key)))
      }
      return result
+}
+
+func getBody(url string, params *OrderedParams) (*string, os.Error) {
+     resp, err := get(url, params)
+     if err != nil {
+        return nil, err
+     }
+     bytes, err := ioutil.ReadAll(resp.Body)
+     resp.Body.Close()
+     if err != nil {
+        return nil, err
+     }
+     str := string(bytes)
+     return &str, nil 
 }
 
 func get(url string, params *OrderedParams) (*http.Response, os.Error) {
