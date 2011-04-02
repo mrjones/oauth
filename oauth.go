@@ -37,6 +37,8 @@ type Consumer struct {
      ConsumerSecret string
      
      RequestTokenUrl string
+     AuthorizeTokenUrl string
+
      CallbackUrl string
      AdditionalParams map[string]string
 }
@@ -61,23 +63,46 @@ func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
 
      resp, err := getBody(c.RequestTokenUrl, params)
      
-     parts, err := http.ParseQuery(*resp)
      if err != nil {
         return nil, err
      }
 
-     oauthToken, err := http.URLUnescape(parts[TOKEN_PARAM][0])     
+     return parseRequestTokenResponse(*resp)
+}
+
+func (c *Consumer) TokenAuthorizationUrl(token *UnauthorizedToken) string {
+     return c.AuthorizeTokenUrl + "?oauth_token=" + token.Token
+}
+
+func parseRequestTokenResponse(data string) (*UnauthorizedToken, os.Error) {
+     parts, err := http.ParseQuery(data)
      if err != nil {
         return nil, err
      }
-     oauthTokenSecret, err := http.URLUnescape(parts[TOKEN_SECRET_PARAM][0])     
-     if err != nil {
-        return nil, err
+
+     if len(parts[TOKEN_PARAM]) < 1 {
+        return nil, os.NewError("Missing " + TOKEN_PARAM + " in response.")
+     }
+     if len(parts[TOKEN_SECRET_PARAM]) < 1 {
+        return nil, os.NewError("Missing " + TOKEN_SECRET_PARAM + " in response.")
      }
      
+//     oauthToken, err := http.URLUnescape(parts[TOKEN_PARAM][0])     
+//     if err != nil {
+//        return nil, err
+//     }
+//     oauthTokenSecret, err := http.URLUnescape(parts[TOKEN_SECRET_PARAM][0])     
+//     if err != nil {
+//        return nil, err
+//     }
+//     
+//     token := &UnauthorizedToken{
+//           Token: oauthToken,
+//           TokenSecret: oauthTokenSecret,
+//     }
      token := &UnauthorizedToken{
-           Token: oauthToken,
-           TokenSecret: oauthTokenSecret,
+           Token: parts[TOKEN_PARAM][0],
+           TokenSecret: parts[TOKEN_SECRET_PARAM][0],
      }
      return token, nil
 }
