@@ -17,6 +17,19 @@ import (
 const (
       OAUTH_VERSION = "1.0"
       SIGNATURE_METHOD = "HMAC-SHA1"
+
+      // Request
+      CALLBACK_PARAM = "oauth_callback"
+      CONSUMER_KEY_PARAM = "oauth_consumer_key"
+      NONCE_PARAM = "oauth_nonce"
+      SIGNATURE_METHOD_PARAM = "oauth_signature_method"
+      SIGNATURE_PARAM = "oauth_signature"
+      TIMESTAMP_PARAM = "oauth_timestamp"
+      VERSION_PARAM = "oauth_version"
+      
+      // Response
+      TOKEN_PARAM = "oauth_token"
+      TOKEN_SECRET_PARAM = "oauth_token_secret"
 )
 
 type Consumer struct {
@@ -37,10 +50,10 @@ type UnauthorizedToken struct {
 
 func baseParams() *OrderedParams {
   params := NewOrderedParams()
-  params.Add("oauth_version", OAUTH_VERSION)
-  params.Add("oauth_signature_method", SIGNATURE_METHOD)
-  params.Add("oauth_timestamp", strconv.Itoa64(time.Seconds()))
-  params.Add("oauth_nonce", strconv.Itoa64(rand.Int63()))
+  params.Add(VERSION_PARAM, OAUTH_VERSION)
+  params.Add(SIGNATURE_METHOD_PARAM, SIGNATURE_METHOD)
+  params.Add(TIMESTAMP_PARAM, strconv.Itoa64(time.Seconds()))
+  params.Add(NONCE_PARAM, strconv.Itoa64(rand.Int63()))
   
   return params
 }
@@ -48,20 +61,16 @@ func baseParams() *OrderedParams {
 func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
      params := baseParams()
      for key, value := range c.AdditionalParams {
-         params.Add(key, http.URLEscape(value))
+         params.Add(key, value)
      }
-     params.Add("oauth_consumer_key", c.ConsumerKey)
-     params.Add("oauth_callback", c.CallbackUrl)
+     params.Add(CONSUMER_KEY_PARAM, c.ConsumerKey)
+     params.Add(CALLBACK_PARAM, c.CallbackUrl)
 
      key := escape(c.ConsumerSecret) + "&" // no token secret when requesting
 
      base_string := c.requestString("GET", c.RequestTokenUrl, params)
-     fmt.Println(base_string)
-     signature := digest(base_string, key)
-     escapedsignature := http.URLEscape(signature)
-     params.Add("oauth_signature", escapedsignature)
-
-     fmt.Printf("%s \n-> %s \n-> %s\n", base_string, signature, escapedsignature)
+     signature := sign(base_string, key)
+     params.Add(SIGNATURE_PARAM, signature)
 
      resp, err := get(c.RequestTokenUrl, params)
      defer resp.Body.Close()
@@ -82,11 +91,11 @@ func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
         return nil, err
      }
 
-     oauthToken, err := http.URLUnescape(parts["oauth_token"][0])     
+     oauthToken, err := http.URLUnescape(parts[TOKEN_PARAM][0])     
      if err != nil {
         return nil, err
      }
-     oauthTokenSecret, err := http.URLUnescape(parts["oauth_token_secret"][0])     
+     oauthTokenSecret, err := http.URLUnescape(parts[TOKEN_SECRET_PARAM][0])     
      if err != nil {
         return nil, err
      }
@@ -98,7 +107,7 @@ func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
      return token, nil
 }
 
-func digest(message string, key string) string {
+func sign(message string, key string) string {
      hashfun := hmac.NewSHA1([]byte(key))
      hashfun.Write([]byte(message))
      rawsignature := hashfun.Sum()
@@ -174,12 +183,10 @@ func (o *OrderedParams) Keys() []string {
 }
 
 func (o* OrderedParams) Add(key, value string) {
-     if key == "" {
-        log.Fatal("BAD KEY")
-     }
-     o.allParams[key] = value
+     o.allParams[key] = http.URLEscape(value)
      o.keyOrdering = append(o.keyOrdering, key)
 }
+
 
 func (o *OrderedParams) Len() int {
      return len(o.keyOrdering)
