@@ -129,27 +129,6 @@ func get(url string, params *OrderedParams) (*http.Response, os.Error) {
 
      client := &http.Client{}
      return client.Do(&req)
-
-//     addr := req.URL.Host
-//     conn, err := tls.Dial("tcp", "", addr, nil)
-//     if err != nil {
-//        return nil, err
-//     }
-//
-//     err = req.Write(conn)
-//     if err != nil {
-//        conn.Close()
-//        return nil, err
-//     }
-//
-//     reader := bufio.NewReader(conn)
-//     resp, err := http.ReadResponse(reader, req.Method)
-//     if err != nil {
-//        conn.Close()
-//        return nil, err
-//     }
-
-//     return resp, nil
 }
 
 //
