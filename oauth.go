@@ -70,19 +70,25 @@ func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
      params.Add(SIGNATURE_PARAM, sign(base_string, key))
 
      resp, err := getBody(c.RequestTokenUrl, params)
-     
      if err != nil {
         return nil, err
      }
 
-     return parseRequestTokenResponse(*resp)
+     token, secret, err := parseTokenAndSecret(*resp)
+     if err != nil {
+        return nil, err
+     }
+     return &UnauthorizedToken{
+            Token: *token,
+            TokenSecret: *secret,
+     }, nil
 }
 
 func (c *Consumer) TokenAuthorizationUrl(token *UnauthorizedToken) string {
      return c.AuthorizeTokenUrl + "?oauth_token=" + token.Token
 }
 
-func (c *Consumer) AuthorizeToken(token *UnauthorizedToken, verificationCode string) (*AuthorizedToken, os.Error) {
+func (c *Consumer) AuthorizeToken(unauthToken *UnauthorizedToken, verificationCode string) (*AuthorizedToken, os.Error) {
      params := baseParams()
      for key, value := range c.AdditionalParams {
          params.Add(key, value)
@@ -90,6 +96,37 @@ func (c *Consumer) AuthorizeToken(token *UnauthorizedToken, verificationCode str
      params.Add(CONSUMER_KEY_PARAM, c.ConsumerKey)
 
      params.Add(VERIFIER_PARAM, verificationCode)
+     params.Add(TOKEN_PARAM, unauthToken.Token)
+
+     key := escape(c.ConsumerSecret) + "&" + escape(unauthToken.TokenSecret)
+
+     base_string := c.requestString("GET", c.AccessTokenUrl, params)
+     params.Add(SIGNATURE_PARAM, sign(base_string, key))
+
+     resp, err := getBody(c.AccessTokenUrl, params)
+
+     token, secret, err := parseTokenAndSecret(*resp)
+     if err != nil {
+        return nil, err
+     }
+     return &AuthorizedToken{
+            Token: *token,
+            TokenSecret: *secret,
+     }, nil
+}
+
+func (c *Consumer) Get(url string, userParams map[string]string, token *AuthorizedToken) (*http.Response, os.Error) {
+     params := baseParams()
+     for key, value := range c.AdditionalParams {
+         params.Add(key, value)
+     }
+     if userParams != nil {
+        for key, value := range userParams {
+            params.Add(key, value) 
+        }
+     }
+     params.Add(CONSUMER_KEY_PARAM, c.ConsumerKey)
+
      params.Add(TOKEN_PARAM, token.Token)
 
      key := escape(c.ConsumerSecret) + "&" + escape(token.TokenSecret)
@@ -97,46 +134,23 @@ func (c *Consumer) AuthorizeToken(token *UnauthorizedToken, verificationCode str
      base_string := c.requestString("GET", c.AccessTokenUrl, params)
      params.Add(SIGNATURE_PARAM, sign(base_string, key))
 
-     resp, err := getBody(c.AccessTokenUrl, params)
-
-     fmt.Println("RESP: " + *resp)
-     if err != nil {
-        return nil, err
-     }
-     return nil, nil
+     return get(url, params)     
 }
 
-func parseRequestTokenResponse(data string) (*UnauthorizedToken, os.Error) {
+func parseTokenAndSecret(data string) (*string, *string, os.Error) {
      parts, err := http.ParseQuery(data)
      if err != nil {
-        return nil, err
+        return nil, nil, err
      }
 
      if len(parts[TOKEN_PARAM]) < 1 {
-        return nil, os.NewError("Missing " + TOKEN_PARAM + " in response.")
+        return nil, nil, os.NewError("Missing " + TOKEN_PARAM + " in response.")
      }
      if len(parts[TOKEN_SECRET_PARAM]) < 1 {
-        return nil, os.NewError("Missing " + TOKEN_SECRET_PARAM + " in response.")
+        return nil, nil, os.NewError("Missing " + TOKEN_SECRET_PARAM + " in response.")
      }
      
-//     oauthToken, err := http.URLUnescape(parts[TOKEN_PARAM][0])     
-//     if err != nil {
-//        return nil, err
-//     }
-//     oauthTokenSecret, err := http.URLUnescape(parts[TOKEN_SECRET_PARAM][0])     
-//     if err != nil {
-//        return nil, err
-//     }
-//     
-//     token := &UnauthorizedToken{
-//           Token: oauthToken,
-//           TokenSecret: oauthTokenSecret,
-//     }
-     token := &UnauthorizedToken{
-           Token: parts[TOKEN_PARAM][0],
-           TokenSecret: parts[TOKEN_SECRET_PARAM][0],
-     }
-     return token, nil
+     return &parts[TOKEN_PARAM][0], &parts[TOKEN_SECRET_PARAM][0], nil
 }
 
 func baseParams() *OrderedParams {

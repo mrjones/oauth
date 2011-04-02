@@ -3,6 +3,7 @@ package main
 import (
        "flag"
        "fmt"
+       "io/ioutil"
        "log"
        "./oauth"
 )
@@ -41,5 +42,19 @@ func main() {
 
 	fmt.Scanln(&verificationCode)
 
-  c.AuthorizeToken(token, verificationCode);
+  authToken, err := c.AuthorizeToken(token, verificationCode);
+     if err != nil {
+        log.Fatal(err)
+     }
+
+     params := make(map[string]string)
+     params["granularity"] = "best"
+     params["max-results"] = "1"
+
+     response, err := c.Get("https://www.googleapis.com/latitude/v1/location", params, authToken)
+
+     defer response.Body.Close();
+     
+     bits, err := ioutil.ReadAll(response.Body)
+     fmt.Println("GRAND RESULT: " + string(bits))
 }
