@@ -19,6 +19,7 @@ func main() {
 
        RequestTokenUrl: "https://www.google.com/accounts/OAuthGetRequestToken",
        AuthorizeTokenUrl:"https://www.google.com/latitude/apps/OAuthAuthorizeToken",
+       AccessTokenUrl: "https://www.google.com/accounts/OAuthGetAccessToken",
 
        CallbackUrl: "oob",
        AdditionalParams: make(map[string]string),
@@ -33,4 +34,12 @@ func main() {
      fmt.Println("Token Secret: " + token.TokenSecret)
 
      fmt.Println(c.TokenAuthorizationUrl(token) + "&domain=mrjon.es&granularity=best")
+
+	fmt.Printf("Grant access, and then enter the verification code here: ")
+
+	verificationCode := ""
+
+	fmt.Scanln(&verificationCode)
+
+  c.AuthorizeToken(token, verificationCode);
 }

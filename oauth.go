@@ -24,6 +24,7 @@ const (
       SIGNATURE_METHOD_PARAM = "oauth_signature_method"
       SIGNATURE_PARAM = "oauth_signature"
       TIMESTAMP_PARAM = "oauth_timestamp"
+      VERIFIER_PARAM = "oauth_verifier"
       VERSION_PARAM = "oauth_version"
       
       // Response
@@ -38,6 +39,7 @@ type Consumer struct {
      
      RequestTokenUrl string
      AuthorizeTokenUrl string
+     AccessTokenUrl string
 
      CallbackUrl string
      AdditionalParams map[string]string
@@ -46,6 +48,12 @@ type Consumer struct {
 type UnauthorizedToken struct {
      Token string
      TokenSecret string
+}
+
+type AuthorizedToken struct {
+     Token string
+     TokenSecret string
+     
 }
 
 func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
@@ -72,6 +80,30 @@ func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
 
 func (c *Consumer) TokenAuthorizationUrl(token *UnauthorizedToken) string {
      return c.AuthorizeTokenUrl + "?oauth_token=" + token.Token
+}
+
+func (c *Consumer) AuthorizeToken(token *UnauthorizedToken, verificationCode string) (*AuthorizedToken, os.Error) {
+     params := baseParams()
+     for key, value := range c.AdditionalParams {
+         params.Add(key, value)
+     }
+     params.Add(CONSUMER_KEY_PARAM, c.ConsumerKey)
+
+     params.Add(VERIFIER_PARAM, verificationCode)
+     params.Add(TOKEN_PARAM, token.Token)
+
+     key := escape(c.ConsumerSecret) + "&" + escape(token.TokenSecret)
+
+     base_string := c.requestString("GET", c.AccessTokenUrl, params)
+     params.Add(SIGNATURE_PARAM, sign(base_string, key))
+
+     resp, err := getBody(c.AccessTokenUrl, params)
+
+     fmt.Println("RESP: " + *resp)
+     if err != nil {
+        return nil, err
+     }
+     return nil, nil
 }
 
 func parseRequestTokenResponse(data string) (*UnauthorizedToken, os.Error) {
@@ -118,6 +150,7 @@ func baseParams() *OrderedParams {
 }
 
 func sign(message string, key string) string {
+     fmt.Println("Signing:" + message)
      hashfun := hmac.NewSHA1([]byte(key))
      hashfun.Write([]byte(message))
      rawsignature := hashfun.Sum()
