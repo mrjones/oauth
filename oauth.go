@@ -48,21 +48,21 @@ func baseParams() *OrderedParams {
 func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
      params := baseParams()
      for key, value := range c.AdditionalParams {
-         params.Add(key, value)
+         params.Add(key, http.URLEscape(value))
      }
      params.Add("oauth_consumer_key", c.ConsumerKey)
 
      params.Add("oauth_callback", c.CallbackUrl)
 
-     key := escape(c.ConsumerSecret + "&") // no token secret when requesting
+     key := escape(c.ConsumerSecret) + "&" // no token secret when requesting
 
-     req := c.requestString("GET", c.RequestTokenUrl, params)
-     fmt.Println(req)
-     signature := digest(req, key)
+     base_string := c.requestString("GET", c.RequestTokenUrl, params)
+     fmt.Println(base_string)
+     signature := digest(base_string, key)
      escapedsignature := http.URLEscape(signature)
      params.Add("oauth_signature", escapedsignature)
 
-     fmt.Printf("%s \n-> %s \n-> %s\n", req, signature, escapedsignature)
+     fmt.Printf("%s \n-> %s \n-> %s\n", base_string, signature, escapedsignature)
 
      resp, err := get(c.RequestTokenUrl, params)
 
