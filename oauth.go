@@ -51,7 +51,6 @@ func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
          params.Add(key, http.URLEscape(value))
      }
      params.Add("oauth_consumer_key", c.ConsumerKey)
-
      params.Add("oauth_callback", c.CallbackUrl)
 
      key := escape(c.ConsumerSecret) + "&" // no token secret when requesting
@@ -65,20 +64,38 @@ func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
      fmt.Printf("%s \n-> %s \n-> %s\n", base_string, signature, escapedsignature)
 
      resp, err := get(c.RequestTokenUrl, params)
+     defer resp.Body.Close()
 
      if err != nil {
         log.Fatal(err)
         return nil, err
      }
-     defer resp.Body.Close()
 
-     contents, err := ioutil.ReadAll(resp.Body)
+     contentbytes, err := ioutil.ReadAll(resp.Body)
      if err != nil {
         return nil, err
      }
-     fmt.Println(string(contents))
+     contents := string(contentbytes)
      
-     return nil, nil
+     parts, err := http.ParseQuery(contents)
+     if err != nil {
+        return nil, err
+     }
+
+     oauthToken, err := http.URLUnescape(parts["oauth_token"][0])     
+     if err != nil {
+        return nil, err
+     }
+     oauthTokenSecret, err := http.URLUnescape(parts["oauth_token_secret"][0])     
+     if err != nil {
+        return nil, err
+     }
+     
+     token := &UnauthorizedToken{
+           Token: oauthToken,
+           TokenSecret: oauthTokenSecret,
+     }
+     return token, nil
 }
 
 func digest(message string, key string) string {

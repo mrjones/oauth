@@ -3,6 +3,7 @@ package main
 import (
        "flag"
        "fmt"
+       "log"
        "./oauth"
 )
 
@@ -21,5 +22,10 @@ func main() {
      }
 
      c.AdditionalParams["scope"] = "https://www.googleapis.com/auth/latitude"
-     c.GetRequestToken()
+     token, err := c.GetRequestToken()
+     if err != nil {
+        log.Fatal(err)
+     }
+     fmt.Println("Token: " + token.Token)
+     fmt.Println("Token Secret: " + token.TokenSecret)
 }
