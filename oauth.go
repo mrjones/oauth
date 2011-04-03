@@ -41,9 +41,10 @@ type Consumer struct {
 	CallbackUrl      string
 	AdditionalParams map[string]string
 
-	HttpClient     HttpClient
-	Clock          Clock
-	NonceGenerator NonceGenerator
+	httpClient     httpClient
+	clock          clock
+	nonceGenerator nonceGenerator
+  signer signer
 }
 
 type UnauthorizedToken struct {
@@ -63,21 +64,27 @@ type request struct {
 	userParams  map[string]string
 }
 
-type HttpClient interface {
+// Private seams for testing
+
+type httpClient interface {
 	Do(req *http.Request) (resp *http.Response, err os.Error)
 }
 
-type Clock interface {
+type clock interface {
 	Seconds() int64
 }
 
-type NonceGenerator interface {
+type nonceGenerator interface {
 	Int63() int64
 }
 
-type DefaultClock struct{}
+type signer interface {
+  Sign(message, key string) string
+}
 
-func (*DefaultClock) Seconds() int64 {
+type defaultClock struct{}
+
+func (*defaultClock) Seconds() int64 {
 	return time.Seconds()
 }
 
@@ -114,7 +121,7 @@ func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
 
 func (c *Consumer) signRequest(req *request, key string) *request {
 	base_string := c.requestString(req.method, req.url, req.oauthParams)
-	req.oauthParams.Add(SIGNATURE_PARAM, sign(base_string, key))
+	req.oauthParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
 	return req
 }
 
@@ -164,7 +171,7 @@ func (c *Consumer) Get(url string, userParams map[string]string, token *Authoriz
 	key := c.makeKey(token.TokenSecret)
 
 	base_string := c.requestString("GET", url, allParams)
-	authParams.Add(SIGNATURE_PARAM, sign(base_string, key))
+	authParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
 
 	return c.get(url+queryParams, authParams)
 }
@@ -190,15 +197,18 @@ func parseTokenAndSecret(data string) (*string, *string, os.Error) {
 }
 
 func (c *Consumer) init() {
-	if c.Clock == nil {
-		c.Clock = &DefaultClock{}
+	if c.clock == nil {
+		c.clock = &defaultClock{}
 	}
-	if c.HttpClient == nil {
-		c.HttpClient = &http.Client{}
+	if c.httpClient == nil {
+		c.httpClient = &http.Client{}
 	}
-	if c.NonceGenerator == nil {
-		c.NonceGenerator = rand.New(rand.NewSource(c.Clock.Seconds()))
+	if c.nonceGenerator == nil {
+		c.nonceGenerator = rand.New(rand.NewSource(c.clock.Seconds()))
 	}
+  if c.signer == nil {
+    c.signer = &SHA1Signer{}
+  }
 }
 
 func (c *Consumer) baseParams(consumerKey string, additionalParams map[string]string) *OrderedParams {
@@ -206,8 +216,8 @@ func (c *Consumer) baseParams(consumerKey string, additionalParams map[string]st
 	params := NewOrderedParams()
 	params.Add(VERSION_PARAM, OAUTH_VERSION)
 	params.Add(SIGNATURE_METHOD_PARAM, SIGNATURE_METHOD)
-	params.Add(TIMESTAMP_PARAM, strconv.Itoa64(c.Clock.Seconds()))
-	params.Add(NONCE_PARAM, strconv.Itoa64(c.NonceGenerator.Int63()))
+	params.Add(TIMESTAMP_PARAM, strconv.Itoa64(c.clock.Seconds()))
+	params.Add(NONCE_PARAM, strconv.Itoa64(c.nonceGenerator.Int63()))
 	params.Add(CONSUMER_KEY_PARAM, consumerKey)
 	for key, value := range additionalParams {
 		params.Add(key, value)
@@ -215,7 +225,10 @@ func (c *Consumer) baseParams(consumerKey string, additionalParams map[string]st
 	return params
 }
 
-func sign(message string, key string) string {
+type SHA1Signer struct {
+}
+
+func (*SHA1Signer) Sign(message string, key string) string {
 	fmt.Println("Signing:" + message)
 	fmt.Println("Key:" + key)
 	hashfun := hmac.NewSHA1([]byte(key))
@@ -282,7 +295,7 @@ func (c *Consumer) get(url string, oauthParams *OrderedParams) (*http.Response, 
 	fmt.Println("AUTH-HDR: " + authhdr)
 	req.Header.Add("Authorization", authhdr)
 
-	return c.HttpClient.Do(&req)
+	return c.httpClient.Do(&req)
 }
 
 //
