@@ -96,7 +96,7 @@ func newGetRequest(url string, oauthParams *OrderedParams) *request {
 	}
 }
 
-func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
+func (c *Consumer) GetRequestTokenAndUrl() (*UnauthorizedToken, *string, os.Error) {
 	params := c.baseParams(c.ConsumerKey, c.AdditionalParams)
 	params.Add(CALLBACK_PARAM, c.CallbackUrl)
 
@@ -105,28 +105,27 @@ func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
 
 	resp, err := c.getBody(c.RequestTokenUrl, params)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	token, secret, err := parseTokenAndSecret(*resp)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+
+  url := c.AuthorizeTokenUrl + "?oauth_token=" + *token
+
 	return &UnauthorizedToken{
 		Token:       *token,
 		TokenSecret: *secret,
 	},
-		nil
+    &url, nil
 }
 
 func (c *Consumer) signRequest(req *request, key string) *request {
 	base_string := c.requestString(req.method, req.url, req.oauthParams)
 	req.oauthParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
 	return req
-}
-
-func (c *Consumer) TokenAuthorizationUrl(token *UnauthorizedToken) string {
-	return c.AuthorizeTokenUrl + "?oauth_token=" + token.Token
 }
 
 func (c *Consumer) AuthorizeToken(unauthToken *UnauthorizedToken, verificationCode string) (*AuthorizedToken, os.Error) {

@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestFoo(t *testing.T) {
+func TestSuccessfulTokenRequest(t *testing.T) {
 	c := basicConsumer()
 
 	mockClient := NewMockHttpClient(t)
@@ -31,7 +31,7 @@ func TestFoo(t *testing.T) {
   mockSigner := &MockSigner{}
   c.signer = mockSigner
 
-	token, err := c.GetRequestToken()
+	token, url, err := c.GetRequestTokenAndUrl()
 
 	if err != nil {
 		t.Fatal(err)
@@ -39,6 +39,7 @@ func TestFoo(t *testing.T) {
 	assertEq(t, "TOKEN", token.Token)
 	assertEq(t, "SECRET", token.TokenSecret)
   assertEq(t, "consumersecret&", mockSigner.UsedKey)
+  assertEq(t, "http://www.mrjon.es/authorizetoken?oauth_token=TOKEN", *url)
 }
 
 func basicConsumer() *Consumer {
