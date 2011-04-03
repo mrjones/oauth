@@ -44,7 +44,7 @@ type Consumer struct {
 	httpClient     httpClient
 	clock          clock
 	nonceGenerator nonceGenerator
-  signer signer
+	signer         signer
 }
 
 type UnauthorizedToken struct {
@@ -79,7 +79,7 @@ type nonceGenerator interface {
 }
 
 type signer interface {
-  Sign(message, key string) string
+	Sign(message, key string) string
 }
 
 type defaultClock struct{}
@@ -113,13 +113,13 @@ func (c *Consumer) GetRequestTokenAndUrl() (*UnauthorizedToken, *string, os.Erro
 		return nil, nil, err
 	}
 
-  url := c.AuthorizeTokenUrl + "?oauth_token=" + *token
+	url := c.AuthorizeTokenUrl + "?oauth_token=" + *token
 
 	return &UnauthorizedToken{
 		Token:       *token,
 		TokenSecret: *secret,
 	},
-    &url, nil
+		&url, nil
 }
 
 func (c *Consumer) signRequest(req *request, key string) *request {
@@ -205,9 +205,9 @@ func (c *Consumer) init() {
 	if c.nonceGenerator == nil {
 		c.nonceGenerator = rand.New(rand.NewSource(c.clock.Seconds()))
 	}
-  if c.signer == nil {
-    c.signer = &SHA1Signer{}
-  }
+	if c.signer == nil {
+		c.signer = &SHA1Signer{}
+	}
 }
 
 func (c *Consumer) baseParams(consumerKey string, additionalParams map[string]string) *OrderedParams {
@@ -224,8 +224,7 @@ func (c *Consumer) baseParams(consumerKey string, additionalParams map[string]st
 	return params
 }
 
-type SHA1Signer struct {
-}
+type SHA1Signer struct{}
 
 func (*SHA1Signer) Sign(message string, key string) string {
 	fmt.Println("Signing:" + message)

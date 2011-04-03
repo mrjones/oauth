@@ -15,10 +15,10 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 	mockClient.ExpectGet(
 		"http://www.mrjon.es/requesttoken",
 		map[string]string{
-			"oauth_callback":     http.URLEscape("http://www.mrjon.es/callback"),
-			"oauth_consumer_key": "consumerkey",
-			"oauth_nonce":        "2",
-      "oauth_signature": "MOCK_SIGNATURE",
+			"oauth_callback":         http.URLEscape("http://www.mrjon.es/callback"),
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
 			"oauth_signature_method": "HMAC-SHA1",
 			"oauth_timestamp":        "1",
 			"oauth_version":          "1.0",
@@ -28,8 +28,8 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 	c.httpClient = mockClient
 	c.clock = &MockClock{Time: 1}
 	c.nonceGenerator = &MockNonceGenerator{Nonce: 2}
-  mockSigner := &MockSigner{}
-  c.signer = mockSigner
+	mockSigner := &MockSigner{}
+	c.signer = mockSigner
 
 	token, url, err := c.GetRequestTokenAndUrl()
 
@@ -38,8 +38,8 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 	}
 	assertEq(t, "TOKEN", token.Token)
 	assertEq(t, "SECRET", token.TokenSecret)
-  assertEq(t, "consumersecret&", mockSigner.UsedKey)
-  assertEq(t, "http://www.mrjon.es/authorizetoken?oauth_token=TOKEN", *url)
+	assertEq(t, "consumersecret&", mockSigner.UsedKey)
+	assertEq(t, "http://www.mrjon.es/authorizetoken?oauth_token=TOKEN", *url)
 }
 
 func basicConsumer() *Consumer {
@@ -167,13 +167,13 @@ func (m *MockNonceGenerator) Int63() int64 {
 	return m.Nonce
 }
 
-type MockSigner struct{
-  UsedKey string
-  SignedString string
+type MockSigner struct {
+	UsedKey      string
+	SignedString string
 }
 
 func (m *MockSigner) Sign(message string, key string) string {
-  m.UsedKey = key
-  m.SignedString = message
-  return "MOCK_SIGNATURE"
+	m.UsedKey = key
+	m.SignedString = message
+	return "MOCK_SIGNATURE"
 }
