@@ -17,19 +17,16 @@ const (
 	OAUTH_VERSION    = "1.0"
 	SIGNATURE_METHOD = "HMAC-SHA1"
 
-	// Request
 	CALLBACK_PARAM         = "oauth_callback"
 	CONSUMER_KEY_PARAM     = "oauth_consumer_key"
 	NONCE_PARAM            = "oauth_nonce"
 	SIGNATURE_METHOD_PARAM = "oauth_signature_method"
 	SIGNATURE_PARAM        = "oauth_signature"
 	TIMESTAMP_PARAM        = "oauth_timestamp"
-	VERIFIER_PARAM         = "oauth_verifier"
-	VERSION_PARAM          = "oauth_version"
-
-	// Response
 	TOKEN_PARAM        = "oauth_token"
 	TOKEN_SECRET_PARAM = "oauth_token_secret"
+	VERIFIER_PARAM         = "oauth_verifier"
+	VERSION_PARAM          = "oauth_version"
 )
 
 type Consumer struct {
@@ -43,6 +40,8 @@ type Consumer struct {
 
 	CallbackUrl      string
 	AdditionalParams map[string]string
+
+  httpClient http.Client
 }
 
 type UnauthorizedToken struct {
@@ -77,7 +76,7 @@ func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
   req := newGetRequest(c.RequestTokenUrl, params)
   c.signRequest(req, c.makeKey("")) // We don't have a token secret for the key yet
 
-	resp, err := getBody(c.RequestTokenUrl, params)
+	resp, err := c.getBody(c.RequestTokenUrl, params)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +110,7 @@ func (c *Consumer) AuthorizeToken(unauthToken *UnauthorizedToken, verificationCo
   req := newGetRequest(c.AccessTokenUrl, params)
   c.signRequest(req, c.makeKey(unauthToken.TokenSecret))
 
-	resp, err := getBody(c.AccessTokenUrl, params)
+	resp, err := c.getBody(c.AccessTokenUrl, params)
 
 	token, secret, err := parseTokenAndSecret(*resp)
 	if err != nil {
@@ -146,7 +145,7 @@ func (c *Consumer) Get(url string, userParams map[string]string, token *Authoriz
 	base_string := c.requestString("GET", url, allParams)
 	authParams.Add(SIGNATURE_PARAM, sign(base_string, key))
 
-	return get(url+queryParams, authParams)
+	return c.get(url+queryParams, authParams)
 }
 
 func (c *Consumer) makeKey(tokenSecret string) string {
@@ -171,10 +170,11 @@ func parseTokenAndSecret(data string) (*string, *string, os.Error) {
 
 func baseParams(consumerKey string, additionalParams map[string]string) *OrderedParams {
 	params := NewOrderedParams()
+  r := rand.New(rand.NewSource(time.Seconds()))
 	params.Add(VERSION_PARAM, OAUTH_VERSION)
 	params.Add(SIGNATURE_METHOD_PARAM, SIGNATURE_METHOD)
 	params.Add(TIMESTAMP_PARAM, strconv.Itoa64(time.Seconds()))
-	params.Add(NONCE_PARAM, strconv.Itoa64(rand.Int63()))
+	params.Add(NONCE_PARAM, strconv.Itoa64(r.Int63()))
 	params.Add(CONSUMER_KEY_PARAM, consumerKey)
 	for key, value := range additionalParams {
 		params.Add(key, value)
@@ -210,8 +210,8 @@ func (c *Consumer) requestString(method string, url string, params *OrderedParam
 	return result
 }
 
-func getBody(url string, oauthParams *OrderedParams) (*string, os.Error) {
-	resp, err := get(url, oauthParams)
+func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.Error) {
+	resp, err := c.get(url, oauthParams)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +225,7 @@ func getBody(url string, oauthParams *OrderedParams) (*string, os.Error) {
 	return &str, nil
 }
 
-func get(url string, oauthParams *OrderedParams) (*http.Response, os.Error) {
+func (c *Consumer) get(url string, oauthParams *OrderedParams) (*http.Response, os.Error) {
 	fmt.Println("GET url: " + url)
 
 	var req http.Request
@@ -247,8 +247,7 @@ func get(url string, oauthParams *OrderedParams) (*http.Response, os.Error) {
 	fmt.Println("AUTH-HDR: " + authhdr)
 	req.Header.Add("Authorization", authhdr)
 
-	client := &http.Client{}
-	return client.Do(&req)
+	return c.httpClient.Do(&req)
 }
 
 //
