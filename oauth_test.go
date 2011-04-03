@@ -21,7 +21,7 @@ func TestFoo(t *testing.T) {
 //        "oauth_signature":
         "oauth_signature_method": "HMAC-SHA1",
         "oauth_timestamp": "1",
-//        "oauth_version": "1.0",
+        "oauth_version": "1.0",
     },
     "oauth_token=TOKEN&oauth_token_secret=SECRET")
 
@@ -117,7 +117,12 @@ func (o *OAuthChecker) CheckHeader(header string) {
          keyvalue := strings.Split(param, "=", -1)
          // line looks like: key="value", strip off the quotes
          // TODO(mrjones): this is pretty hacky
-         paramMap[keyvalue[0]] = keyvalue[1][1:len(keyvalue[1])-2]
+         value := keyvalue[1]
+         if strings.HasSuffix(value, ",") {
+            value = value[0:len(value)-1]
+         }
+         value = value[1:len(value)-1]
+         paramMap[keyvalue[0]] = value
      }
      for key, value := range o.headerPairs {
          assertEqM(o.t, value, paramMap[key], "For OAuth parameter " + key)
