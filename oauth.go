@@ -23,8 +23,8 @@ const (
 	SIGNATURE_METHOD_PARAM = "oauth_signature_method"
 	SIGNATURE_PARAM        = "oauth_signature"
 	TIMESTAMP_PARAM        = "oauth_timestamp"
-	TOKEN_PARAM        = "oauth_token"
-	TOKEN_SECRET_PARAM = "oauth_token_secret"
+	TOKEN_PARAM            = "oauth_token"
+	TOKEN_SECRET_PARAM     = "oauth_token_secret"
 	VERIFIER_PARAM         = "oauth_verifier"
 	VERSION_PARAM          = "oauth_version"
 )
@@ -41,7 +41,7 @@ type Consumer struct {
 	CallbackUrl      string
 	AdditionalParams map[string]string
 
-  httpClient http.Client
+  HttpClient HttpClient
 }
 
 type UnauthorizedToken struct {
@@ -59,6 +59,10 @@ type request struct {
   url string
   oauthParams *OrderedParams
   userParams map[string]string
+}
+
+type HttpClient interface {
+  Do(req *http.Request) (resp *http.Response, err os.Error)
 }
 
 func newGetRequest(url string, oauthParams *OrderedParams) *request {
@@ -247,7 +251,7 @@ func (c *Consumer) get(url string, oauthParams *OrderedParams) (*http.Response, 
 	fmt.Println("AUTH-HDR: " + authhdr)
 	req.Header.Add("Authorization", authhdr)
 
-	return c.httpClient.Do(&req)
+	return c.HttpClient.Do(&req)
 }
 
 //
