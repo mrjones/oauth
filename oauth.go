@@ -276,10 +276,13 @@ func (o *OrderedParams) Keys() []string {
 }
 
 func (o *OrderedParams) Add(key, value string) {
-	o.allParams[key] = http.URLEscape(value)
-	o.keyOrdering = append(o.keyOrdering, key)
+  o.add(key, http.URLEscape(value))
 }
 
+func (o *OrderedParams) add(key, value string) {
+	o.allParams[key] = value
+	o.keyOrdering = append(o.keyOrdering, key)  
+}
 
 func (o *OrderedParams) Len() int {
 	return len(o.keyOrdering)
@@ -296,7 +299,7 @@ func (o *OrderedParams) Swap(i int, j int) {
 func (o *OrderedParams) Clone() *OrderedParams {
 	clone := NewOrderedParams()
 	for _, key := range o.Keys() {
-		clone.Add(key, o.Get(key))
+		clone.add(key, o.Get(key))
 	}
 	return clone
 }
