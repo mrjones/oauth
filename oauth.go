@@ -160,7 +160,7 @@ func baseParams(consumerKey string, additionalParams map[string]string) *Ordered
 	params.Add(TIMESTAMP_PARAM, strconv.Itoa64(time.Seconds()))
 	params.Add(NONCE_PARAM, strconv.Itoa64(rand.Int63()))
 	params.Add(CONSUMER_KEY_PARAM, consumerKey)
-	for key, value := range c.AdditionalParams {
+	for key, value := range additionalParams {
 		params.Add(key, value)
 	}
 	return params
