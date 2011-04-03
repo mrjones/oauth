@@ -17,15 +17,17 @@ func TestFoo(t *testing.T) {
     map[string]string{
         "oauth_callback": http.URLEscape("http://www.mrjon.es/callback"),
         "oauth_consumer_key": "consumerkey",
-//        "oauth_nonce": 
+        "oauth_nonce": "2",
 //        "oauth_signature":
         "oauth_signature_method": "HMAC-SHA1",
-//        "oauth_timestamp":
+        "oauth_timestamp": "1",
 //        "oauth_version": "1.0",
     },
     "oauth_token=TOKEN&oauth_token_secret=SECRET")
 
 	c.HttpClient = mockClient
+  c.Clock = &MockClock{Time: 1}
+  c.NonceGenerator = &MockNonceGenerator{Nonce: 2}
 
 	token, err := c.GetRequestToken()
 
@@ -138,4 +140,21 @@ func (*MockBody) Close() os.Error {
 
 func (mock *MockBody) Read(p []byte) (n int, err os.Error) {
 	return mock.reader.Read(p)
+}
+
+
+type MockClock struct {
+     Time int64
+}
+
+func (m *MockClock) Seconds() int64 {
+     return m.Time
+}
+
+type MockNonceGenerator struct {
+     Nonce int64
+}
+
+func (m *MockNonceGenerator) Int63() int64 {
+     return m.Nonce
 }

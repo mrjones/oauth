@@ -42,6 +42,8 @@ type Consumer struct {
 	AdditionalParams map[string]string
 
 	HttpClient HttpClient
+  Clock Clock
+  NonceGenerator NonceGenerator
 }
 
 type UnauthorizedToken struct {
@@ -65,6 +67,20 @@ type HttpClient interface {
 	Do(req *http.Request) (resp *http.Response, err os.Error)
 }
 
+type Clock interface {
+  Seconds() int64
+}
+
+type NonceGenerator interface {
+  Int63() int64
+}
+
+type DefaultClock struct {}
+
+func (*DefaultClock) Seconds() int64 {
+     return time.Seconds()
+}
+
 func newGetRequest(url string, oauthParams *OrderedParams) *request {
 	return &request{
 		method:      "GET",
@@ -74,7 +90,7 @@ func newGetRequest(url string, oauthParams *OrderedParams) *request {
 }
 
 func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
-	params := baseParams(c.ConsumerKey, c.AdditionalParams)
+	params := c.baseParams(c.ConsumerKey, c.AdditionalParams)
 	params.Add(CALLBACK_PARAM, c.CallbackUrl)
 
 	req := newGetRequest(c.RequestTokenUrl, params)
@@ -107,7 +123,7 @@ func (c *Consumer) TokenAuthorizationUrl(token *UnauthorizedToken) string {
 }
 
 func (c *Consumer) AuthorizeToken(unauthToken *UnauthorizedToken, verificationCode string) (*AuthorizedToken, os.Error) {
-	params := baseParams(c.ConsumerKey, c.AdditionalParams)
+	params := c.baseParams(c.ConsumerKey, c.AdditionalParams)
 
 	params.Add(VERIFIER_PARAM, verificationCode)
 	params.Add(TOKEN_PARAM, unauthToken.Token)
@@ -129,7 +145,7 @@ func (c *Consumer) AuthorizeToken(unauthToken *UnauthorizedToken, verificationCo
 }
 
 func (c *Consumer) Get(url string, userParams map[string]string, token *AuthorizedToken) (*http.Response, os.Error) {
-	allParams := baseParams(c.ConsumerKey, c.AdditionalParams)
+	allParams := c.baseParams(c.ConsumerKey, c.AdditionalParams)
 	authParams := allParams.Clone()
 
 	queryParams := ""
@@ -173,13 +189,25 @@ func parseTokenAndSecret(data string) (*string, *string, os.Error) {
 	return &parts[TOKEN_PARAM][0], &parts[TOKEN_SECRET_PARAM][0], nil
 }
 
-func baseParams(consumerKey string, additionalParams map[string]string) *OrderedParams {
+func (c *Consumer) init() {
+     if c.Clock == nil {
+        c.Clock = &DefaultClock{}
+     }
+     if c.HttpClient == nil {
+        c.HttpClient = &http.Client{}
+     }
+     if c.NonceGenerator == nil {
+        c.NonceGenerator = rand.New(rand.NewSource(c.Clock.Seconds()))
+     }
+}
+
+func (c *Consumer) baseParams(consumerKey string, additionalParams map[string]string) *OrderedParams {
+  c.init()
 	params := NewOrderedParams()
-	r := rand.New(rand.NewSource(time.Seconds()))
 	params.Add(VERSION_PARAM, OAUTH_VERSION)
 	params.Add(SIGNATURE_METHOD_PARAM, SIGNATURE_METHOD)
-	params.Add(TIMESTAMP_PARAM, strconv.Itoa64(time.Seconds()))
-	params.Add(NONCE_PARAM, strconv.Itoa64(r.Int63()))
+	params.Add(TIMESTAMP_PARAM, strconv.Itoa64(c.Clock.Seconds()))
+	params.Add(NONCE_PARAM, strconv.Itoa64(c.NonceGenerator.Int63()))
 	params.Add(CONSUMER_KEY_PARAM, consumerKey)
 	for key, value := range additionalParams {
 		params.Add(key, value)
