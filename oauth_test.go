@@ -9,28 +9,53 @@ import (
 )
 
 func TestFoo(t *testing.T) {
-	c := &Consumer{
+  c := basicConsumer()
+
+	mockClient := NewMockHttpClient(t)
+	mockClient.ExpectGet(
+  	"http://www.mrjon.es/requesttoken",
+    map[string]string{
+        "oauth_callback": http.URLEscape("http://www.mrjon.es/callback"),
+        "oauth_consumer_key": "consumerkey",
+//        "oauth_nonce": 
+//        "oauth_signature":
+        "oauth_signature_method": "HMAC-SHA1",
+//        "oauth_timestamp":
+//        "oauth_version": "1.0",
+    },
+    "oauth_token=TOKEN&oauth_token_secret=SECRET")
+
+	c.HttpClient = mockClient
+
+	token, err := c.GetRequestToken()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+  assertEq(t, "TOKEN", token.Token)
+  assertEq(t, "SECRET", token.TokenSecret)
+}
+
+func basicConsumer() *Consumer {
+	return &Consumer{
 		ConsumerKey:       "consumerkey",
 		ConsumerSecret:    "consumersecret",
 		RequestTokenUrl:   "http://www.mrjon.es/requesttoken",
 		AuthorizeTokenUrl: "http://www.mrjon.es/authorizetoken",
 		AccessTokenUrl:    "http://www.mrjon.es/accesstoken",
-		CallbackUrl:       "http://www.mjon.es/callback",
+		CallbackUrl:       "http://www.mrjon.es/callback",
 	}
+}
 
-  checker := NewOAuthChecker(t)
+func assertEq(t *testing.T, expected interface{}, actual interface{}) {
+     assertEqM(t, expected, actual, "")
+}
 
-	mockClient := NewMockHttpClient(t)
-	mockClient.ExpectGet("http://www.mrjon.es/requesttoken", checker, "BODY")
-
-	c.HttpClient = mockClient
-
-	_, err := c.GetRequestToken()
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
+func assertEqM(t *testing.T, expected interface{}, actual interface{}, msg string) {
+     if (expected != actual) {
+        t.Fatalf("Assertion error.\n\tExpected: '%s'\n\tActual:   '%s'\n\tMessage:  '%s'",
+                            expected, actual, msg)
+     }
 }
 
 type MockHttpClient struct {
@@ -53,11 +78,7 @@ func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, os.Error) {
 	if req.Header == nil {
 		mock.t.Fatal("Missing 'Authorization' header.")
 	}
-     mock.oAuthChecker.CheckHeader(req.Header.Get("Authorization"))
-//	if req.Header.Get("Authorization") != mock.oAuthHeader {
-//		mock.t.Fatalf("OAuth Header did not match.\nExpected: '%s'\nActual: '%s'",
-//			mock.oAuthHeader, req.Header.Get("Authorization"))
-//	}
+  mock.oAuthChecker.CheckHeader(req.Header.Get("Authorization"))
 
 	return &http.Response{
 		StatusCode: 200,
@@ -66,9 +87,10 @@ func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, os.Error) {
 		nil
 }
 
-func (mock *MockHttpClient) ExpectGet(expectedUrl string, checker *OAuthChecker, responseBody string) {
+func (mock *MockHttpClient) ExpectGet(
+     expectedUrl string, expectedOAuthPairs map[string]string, responseBody string) {
 	mock.url = expectedUrl
-	mock.oAuthChecker = checker
+	mock.oAuthChecker = NewOAuthChecker(mock.t, expectedOAuthPairs)
 	mock.responseBody = responseBody
 }
 
@@ -77,18 +99,27 @@ type OAuthChecker struct {
   t *testing.T
 }
 
-func NewOAuthChecker(t *testing.T) *OAuthChecker {
+func NewOAuthChecker(t *testing.T, headerPairs map[string]string) *OAuthChecker {
      return &OAuthChecker{
-            headerPairs: make(map[string]string),
+            headerPairs: headerPairs,
             t: t,
      }
 }
 
 func (o *OAuthChecker) CheckHeader(header string) {
-}
-
-func (o *OAuthChecker) ExpectHeaderPair(key, value string) {
-     o.headerPairs[key] = value;
+     assertEqM(o.t, "OAuth ", header[0:6], "OAuth Header did not begin correctly.")
+     paramsStr := header[6:]
+     params := strings.Split(paramsStr, "\n    ", -1)
+     paramMap := make(map[string]string)
+     for _, param := range params {
+         keyvalue := strings.Split(param, "=", -1)
+         // line looks like: key="value", strip off the quotes
+         // TODO(mrjones): this is pretty hacky
+         paramMap[keyvalue[0]] = keyvalue[1][1:len(keyvalue[1])-2]
+     }
+     for key, value := range o.headerPairs {
+         assertEqM(o.t, value, paramMap[key], "For OAuth parameter " + key)
+     }
 }
 
 type MockBody struct {
