@@ -1,7 +1,6 @@
 package oauth
 
 import (
-	"fmt"
 	"http"
 	"io"
 	"os"
@@ -19,8 +18,11 @@ func TestFoo(t *testing.T) {
 		CallbackUrl:       "http://www.mjon.es/callback",
 	}
 
+  checker := NewOAuthChecker(t)
+
 	mockClient := NewMockHttpClient(t)
-	mockClient.ExpectGet("http://www.mrjon.es/requesttoken", "HEADER", "BODY")
+	mockClient.ExpectGet("http://www.mrjon.es/requesttoken", checker, "BODY")
+
 	c.HttpClient = mockClient
 
 	_, err := c.GetRequestToken()
@@ -33,7 +35,7 @@ func TestFoo(t *testing.T) {
 
 type MockHttpClient struct {
 	url          string
-	oAuthHeader  string
+	oAuthChecker *OAuthChecker
 	responseBody string
 
 	t *testing.T
@@ -51,10 +53,11 @@ func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, os.Error) {
 	if req.Header == nil {
 		mock.t.Fatal("Missing 'Authorization' header.")
 	}
-	if req.Header.Get("Authorization") != mock.oAuthHeader {
-		mock.t.Fatalf("OAuth Header did not match.\nExpected: '%s'\nActual: '%s'",
-			mock.oAuthHeader, req.Header.Get("Authorization"))
-	}
+     mock.oAuthChecker.CheckHeader(req.Header.Get("Authorization"))
+//	if req.Header.Get("Authorization") != mock.oAuthHeader {
+//		mock.t.Fatalf("OAuth Header did not match.\nExpected: '%s'\nActual: '%s'",
+//			mock.oAuthHeader, req.Header.Get("Authorization"))
+//	}
 
 	return &http.Response{
 		StatusCode: 200,
@@ -63,10 +66,29 @@ func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, os.Error) {
 		nil
 }
 
-func (mock *MockHttpClient) ExpectGet(expectedUrl string, expectedOAuthHeader string, responseBody string) {
+func (mock *MockHttpClient) ExpectGet(expectedUrl string, checker *OAuthChecker, responseBody string) {
 	mock.url = expectedUrl
-	mock.oAuthHeader = expectedOAuthHeader
+	mock.oAuthChecker = checker
 	mock.responseBody = responseBody
+}
+
+type OAuthChecker struct {
+  headerPairs map[string]string
+  t *testing.T
+}
+
+func NewOAuthChecker(t *testing.T) *OAuthChecker {
+     return &OAuthChecker{
+            headerPairs: make(map[string]string),
+            t: t,
+     }
+}
+
+func (o *OAuthChecker) CheckHeader(header string) {
+}
+
+func (o *OAuthChecker) ExpectHeaderPair(key, value string) {
+     o.headerPairs[key] = value;
 }
 
 type MockBody struct {
@@ -84,5 +106,5 @@ func (*MockBody) Close() os.Error {
 }
 
 func (mock *MockBody) Read(p []byte) (n int, err os.Error) {
-	return mock.Read(p)
+	return mock.reader.Read(p)
 }

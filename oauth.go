@@ -220,7 +220,9 @@ func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.
 	if err != nil {
 		return nil, err
 	}
+  fmt.Println("About to readbody")
 	bytes, err := ioutil.ReadAll(resp.Body)
+  fmt.Println("Done readbody")
 	resp.Body.Close()
 	if err != nil {
 		return nil, err
