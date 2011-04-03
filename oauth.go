@@ -41,7 +41,7 @@ type Consumer struct {
 	CallbackUrl      string
 	AdditionalParams map[string]string
 
-  HttpClient HttpClient
+	HttpClient HttpClient
 }
 
 type UnauthorizedToken struct {
@@ -55,30 +55,30 @@ type AuthorizedToken struct {
 }
 
 type request struct {
-  method string
-  url string
-  oauthParams *OrderedParams
-  userParams map[string]string
+	method      string
+	url         string
+	oauthParams *OrderedParams
+	userParams  map[string]string
 }
 
 type HttpClient interface {
-  Do(req *http.Request) (resp *http.Response, err os.Error)
+	Do(req *http.Request) (resp *http.Response, err os.Error)
 }
 
 func newGetRequest(url string, oauthParams *OrderedParams) *request {
-  return &request{
-      method: "GET",
-      url: url,
-      oauthParams: oauthParams,
-  }
+	return &request{
+		method:      "GET",
+		url:         url,
+		oauthParams: oauthParams,
+	}
 }
 
 func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
 	params := baseParams(c.ConsumerKey, c.AdditionalParams)
 	params.Add(CALLBACK_PARAM, c.CallbackUrl)
 
-  req := newGetRequest(c.RequestTokenUrl, params)
-  c.signRequest(req, c.makeKey("")) // We don't have a token secret for the key yet
+	req := newGetRequest(c.RequestTokenUrl, params)
+	c.signRequest(req, c.makeKey("")) // We don't have a token secret for the key yet
 
 	resp, err := c.getBody(c.RequestTokenUrl, params)
 	if err != nil {
@@ -92,13 +92,14 @@ func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
 	return &UnauthorizedToken{
 		Token:       *token,
 		TokenSecret: *secret,
-	}, nil
+	},
+		nil
 }
 
 func (c *Consumer) signRequest(req *request, key string) *request {
-  base_string := c.requestString(req.method, req.url, req.oauthParams)
-  req.oauthParams.Add(SIGNATURE_PARAM, sign(base_string, key))
-  return req
+	base_string := c.requestString(req.method, req.url, req.oauthParams)
+	req.oauthParams.Add(SIGNATURE_PARAM, sign(base_string, key))
+	return req
 }
 
 func (c *Consumer) TokenAuthorizationUrl(token *UnauthorizedToken) string {
@@ -111,8 +112,8 @@ func (c *Consumer) AuthorizeToken(unauthToken *UnauthorizedToken, verificationCo
 	params.Add(VERIFIER_PARAM, verificationCode)
 	params.Add(TOKEN_PARAM, unauthToken.Token)
 
-  req := newGetRequest(c.AccessTokenUrl, params)
-  c.signRequest(req, c.makeKey(unauthToken.TokenSecret))
+	req := newGetRequest(c.AccessTokenUrl, params)
+	c.signRequest(req, c.makeKey(unauthToken.TokenSecret))
 
 	resp, err := c.getBody(c.AccessTokenUrl, params)
 
@@ -174,7 +175,7 @@ func parseTokenAndSecret(data string) (*string, *string, os.Error) {
 
 func baseParams(consumerKey string, additionalParams map[string]string) *OrderedParams {
 	params := NewOrderedParams()
-  r := rand.New(rand.NewSource(time.Seconds()))
+	r := rand.New(rand.NewSource(time.Seconds()))
 	params.Add(VERSION_PARAM, OAUTH_VERSION)
 	params.Add(SIGNATURE_METHOD_PARAM, SIGNATURE_METHOD)
 	params.Add(TIMESTAMP_PARAM, strconv.Itoa64(time.Seconds()))
@@ -280,12 +281,12 @@ func (o *OrderedParams) Keys() []string {
 }
 
 func (o *OrderedParams) Add(key, value string) {
-  o.add(key, http.URLEscape(value))
+	o.add(key, http.URLEscape(value))
 }
 
 func (o *OrderedParams) add(key, value string) {
 	o.allParams[key] = value
-	o.keyOrdering = append(o.keyOrdering, key)  
+	o.keyOrdering = append(o.keyOrdering, key)
 }
 
 func (o *OrderedParams) Len() int {

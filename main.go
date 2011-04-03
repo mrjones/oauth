@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-  "http"
+	"http"
 	"io/ioutil"
 	"log"
 	"./oauth"
@@ -27,7 +27,7 @@ func main() {
 
 		CallbackUrl:      "oob",
 		AdditionalParams: make(map[string]string),
-    HttpClient: &http.Client{},
+		HttpClient:       &http.Client{},
 	}
 
 	c.AdditionalParams["scope"] = "https://www.googleapis.com/auth/latitude"
