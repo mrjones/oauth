@@ -11,6 +11,8 @@ import (
 func main() {
      var consumerKey *string = flag.String("consumerkey", "", "")
      var consumerSecret *string = flag.String("consumersecret", "", "")
+     var apiKey *string = flag.String("apikey", "", "")
+
      flag.Parse()
 
      fmt.Println("MAIN");
@@ -34,7 +36,7 @@ func main() {
      fmt.Println("Token: " + token.Token)
      fmt.Println("Token Secret: " + token.TokenSecret)
 
-     fmt.Println(c.TokenAuthorizationUrl(token) + "&domain=mrjon.es&granularity=best")
+     fmt.Println(c.TokenAuthorizationUrl(token) + "&domain=mrjon.es&granularity=best&location=all")
 
 	fmt.Printf("Grant access, and then enter the verification code here: ")
 
@@ -48,10 +50,9 @@ func main() {
      }
 
      params := make(map[string]string)
-     params["granularity"] = "best"
-     params["max-results"] = "1"
+     params["key"] = *apiKey
 
-     response, err := c.Get("https://www.googleapis.com/latitude/v1/location", params, authToken)
+     response, err := c.Get("https://www.googleapis.com/latitude/v1/currentLocation", params, authToken)
 
      defer response.Body.Close();
      

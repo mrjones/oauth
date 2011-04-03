@@ -116,25 +116,35 @@ func (c *Consumer) AuthorizeToken(unauthToken *UnauthorizedToken, verificationCo
 }
 
 func (c *Consumer) Get(url string, userParams map[string]string, token *AuthorizedToken) (*http.Response, os.Error) {
-     params := baseParams()
+     allParams := baseParams()
+     authParams := allParams.Clone()     
+
      for key, value := range c.AdditionalParams {
-         params.Add(key, value)
+         allParams.Add(key, value)
+         authParams.Add(key, value)
      }
+     
+     queryParams := ""
+     separator := "?"
      if userParams != nil {
         for key, value := range userParams {
-            params.Add(key, value) 
+            allParams.Add(key, value) 
+            queryParams += separator + escape(key) + "=" + escape(value)
+            separator = "&"
         }
      }
-     params.Add(CONSUMER_KEY_PARAM, c.ConsumerKey)
+     allParams.Add(CONSUMER_KEY_PARAM, c.ConsumerKey)
+     authParams.Add(CONSUMER_KEY_PARAM, c.ConsumerKey)
 
-     params.Add(TOKEN_PARAM, token.Token)
+     allParams.Add(TOKEN_PARAM, token.Token)
+     authParams.Add(TOKEN_PARAM, token.Token)
 
      key := escape(c.ConsumerSecret) + "&" + escape(token.TokenSecret)
 
-     base_string := c.requestString("GET", c.AccessTokenUrl, params)
-     params.Add(SIGNATURE_PARAM, sign(base_string, key))
+     base_string := c.requestString("GET", url, allParams)
+     authParams.Add(SIGNATURE_PARAM, sign(base_string, key))
 
-     return get(url, params)     
+     return get(url + queryParams, authParams)
 }
 
 func parseTokenAndSecret(data string) (*string, *string, os.Error) {
@@ -165,6 +175,7 @@ func baseParams() *OrderedParams {
 
 func sign(message string, key string) string {
      fmt.Println("Signing:" + message)
+     fmt.Println("Key:" + key)
      hashfun := hmac.NewSHA1([]byte(key))
      hashfun.Write([]byte(message))
      rawsignature := hashfun.Sum()
@@ -201,10 +212,13 @@ func getBody(url string, params *OrderedParams) (*string, os.Error) {
         return nil, err
      }
      str := string(bytes)
+     fmt.Println("BODY RESPONSE: " + str)
      return &str, nil 
 }
 
 func get(url string, params *OrderedParams) (*http.Response, os.Error) {
+     fmt.Println("GET url: " + url)
+
      var req http.Request
      req.Method = "GET"
      req.Header = http.Header{}
@@ -269,4 +283,12 @@ func (o *OrderedParams) Less(i int, j int) bool {
 
 func (o *OrderedParams) Swap(i int, j int) {
      o.keyOrdering[i], o.keyOrdering[j] = o.keyOrdering[j], o.keyOrdering[i]
+}
+
+func (o *OrderedParams) Clone() *OrderedParams {
+     clone := NewOrderedParams()
+     for _, key := range o.Keys() {
+         clone.Add(key, o.Get(key))
+     }
+     return clone
 }
