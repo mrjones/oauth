@@ -55,14 +55,27 @@ type AuthorizedToken struct {
 	TokenSecret string
 }
 
+type request struct {
+  method string
+  url string
+  oauthParams *OrderedParams
+  userParams map[string]string
+}
+
+func newGetRequest(url string, oauthParams *OrderedParams) *request {
+  return &request{
+      method: "GET",
+      url: url,
+      oauthParams: oauthParams,
+  }
+}
+
 func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
 	params := baseParams(c.ConsumerKey, c.AdditionalParams)
 	params.Add(CALLBACK_PARAM, c.CallbackUrl)
 
-	key := makeKey(c.ConsumerSecret, "") // We don't have a token_secret yet
-
-	base_string := c.requestString("GET", c.RequestTokenUrl, params)
-	params.Add(SIGNATURE_PARAM, sign(base_string, key))
+  req := newGetRequest(c.RequestTokenUrl, params)
+  c.signRequest(req, c.makeKey("")) // We don't have a token secret for the key yet
 
 	resp, err := getBody(c.RequestTokenUrl, params)
 	if err != nil {
@@ -76,8 +89,13 @@ func (c *Consumer) GetRequestToken() (*UnauthorizedToken, os.Error) {
 	return &UnauthorizedToken{
 		Token:       *token,
 		TokenSecret: *secret,
-	},
-		nil
+	}, nil
+}
+
+func (c *Consumer) signRequest(req *request, key string) *request {
+  base_string := c.requestString(req.method, req.url, req.oauthParams)
+  req.oauthParams.Add(SIGNATURE_PARAM, sign(base_string, key))
+  return req
 }
 
 func (c *Consumer) TokenAuthorizationUrl(token *UnauthorizedToken) string {
@@ -90,10 +108,8 @@ func (c *Consumer) AuthorizeToken(unauthToken *UnauthorizedToken, verificationCo
 	params.Add(VERIFIER_PARAM, verificationCode)
 	params.Add(TOKEN_PARAM, unauthToken.Token)
 
-	key := makeKey(c.ConsumerSecret, unauthToken.TokenSecret)
-
-	base_string := c.requestString("GET", c.AccessTokenUrl, params)
-	params.Add(SIGNATURE_PARAM, sign(base_string, key))
+  req := newGetRequest(c.AccessTokenUrl, params)
+  c.signRequest(req, c.makeKey(unauthToken.TokenSecret))
 
 	resp, err := getBody(c.AccessTokenUrl, params)
 
@@ -125,7 +141,7 @@ func (c *Consumer) Get(url string, userParams map[string]string, token *Authoriz
 	allParams.Add(TOKEN_PARAM, token.Token)
 	authParams.Add(TOKEN_PARAM, token.Token)
 
-	key := makeKey(c.ConsumerSecret, token.TokenSecret)
+	key := c.makeKey(token.TokenSecret)
 
 	base_string := c.requestString("GET", url, allParams)
 	authParams.Add(SIGNATURE_PARAM, sign(base_string, key))
@@ -133,8 +149,8 @@ func (c *Consumer) Get(url string, userParams map[string]string, token *Authoriz
 	return get(url+queryParams, authParams)
 }
 
-func makeKey(consumerSecret string, tokenSecret string) string {
-	return escape(consumerSecret) + "&" + escape(tokenSecret)
+func (c *Consumer) makeKey(tokenSecret string) string {
+	return escape(c.ConsumerSecret) + "&" + escape(tokenSecret)
 }
 
 func parseTokenAndSecret(data string) (*string, *string, os.Error) {
@@ -194,8 +210,8 @@ func (c *Consumer) requestString(method string, url string, params *OrderedParam
 	return result
 }
 
-func getBody(url string, params *OrderedParams) (*string, os.Error) {
-	resp, err := get(url, params)
+func getBody(url string, oauthParams *OrderedParams) (*string, os.Error) {
+	resp, err := get(url, oauthParams)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +225,7 @@ func getBody(url string, params *OrderedParams) (*string, os.Error) {
 	return &str, nil
 }
 
-func get(url string, params *OrderedParams) (*http.Response, os.Error) {
+func get(url string, oauthParams *OrderedParams) (*http.Response, os.Error) {
 	fmt.Println("GET url: " + url)
 
 	var req http.Request
@@ -222,11 +238,11 @@ func get(url string, params *OrderedParams) (*http.Response, os.Error) {
 	req.URL = parsedurl
 
 	authhdr := "OAuth "
-	for pos, key := range params.Keys() {
+	for pos, key := range oauthParams.Keys() {
 		if pos > 0 {
 			authhdr += ",\n    "
 		}
-		authhdr += key + "=\"" + params.Get(key) + "\""
+		authhdr += key + "=\"" + oauthParams.Get(key) + "\""
 	}
 	fmt.Println("AUTH-HDR: " + authhdr)
 	req.Header.Add("Authorization", authhdr)
