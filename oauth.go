@@ -41,9 +41,9 @@ type Consumer struct {
 	CallbackUrl      string
 	AdditionalParams map[string]string
 
-	HttpClient HttpClient
-  Clock Clock
-  NonceGenerator NonceGenerator
+	HttpClient     HttpClient
+	Clock          Clock
+	NonceGenerator NonceGenerator
 }
 
 type UnauthorizedToken struct {
@@ -68,17 +68,17 @@ type HttpClient interface {
 }
 
 type Clock interface {
-  Seconds() int64
+	Seconds() int64
 }
 
 type NonceGenerator interface {
-  Int63() int64
+	Int63() int64
 }
 
-type DefaultClock struct {}
+type DefaultClock struct{}
 
 func (*DefaultClock) Seconds() int64 {
-     return time.Seconds()
+	return time.Seconds()
 }
 
 func newGetRequest(url string, oauthParams *OrderedParams) *request {
@@ -190,19 +190,19 @@ func parseTokenAndSecret(data string) (*string, *string, os.Error) {
 }
 
 func (c *Consumer) init() {
-     if c.Clock == nil {
-        c.Clock = &DefaultClock{}
-     }
-     if c.HttpClient == nil {
-        c.HttpClient = &http.Client{}
-     }
-     if c.NonceGenerator == nil {
-        c.NonceGenerator = rand.New(rand.NewSource(c.Clock.Seconds()))
-     }
+	if c.Clock == nil {
+		c.Clock = &DefaultClock{}
+	}
+	if c.HttpClient == nil {
+		c.HttpClient = &http.Client{}
+	}
+	if c.NonceGenerator == nil {
+		c.NonceGenerator = rand.New(rand.NewSource(c.Clock.Seconds()))
+	}
 }
 
 func (c *Consumer) baseParams(consumerKey string, additionalParams map[string]string) *OrderedParams {
-  c.init()
+	c.init()
 	params := NewOrderedParams()
 	params.Add(VERSION_PARAM, OAUTH_VERSION)
 	params.Add(SIGNATURE_METHOD_PARAM, SIGNATURE_METHOD)
@@ -248,9 +248,9 @@ func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.
 	if err != nil {
 		return nil, err
 	}
-  fmt.Println("About to readbody")
+	fmt.Println("About to readbody")
 	bytes, err := ioutil.ReadAll(resp.Body)
-  fmt.Println("Done readbody")
+	fmt.Println("Done readbody")
 	resp.Body.Close()
 	if err != nil {
 		return nil, err
