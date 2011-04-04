@@ -75,6 +75,8 @@ func TestSuccessfulTokenAuthorization(t *testing.T) {
 			"oauth_signature":        "MOCK_SIGNATURE",
 			"oauth_signature_method": "HMAC-SHA1",
 			"oauth_timestamp":        "1",
+      "oauth_token":            "UTOKEN",
+      "oauth_verifier":         "VERIFICATION_CODE",
 			"oauth_version":          "1.0",
 		},
 		"oauth_token=ATOKEN&oauth_token_secret=ATOKEN_SECRET")
@@ -97,20 +99,22 @@ func TestSuccessfulAuthorizedGet(t *testing.T) {
   m.install(c)
 
 	m.httpClient.ExpectGet(
-		"http://www.mrjon.es/someurl",
+		"http://www.mrjon.es/someurl?key=val",
 		map[string]string{
 			"oauth_consumer_key":     "consumerkey",
 			"oauth_nonce":            "2",
 			"oauth_signature":        "MOCK_SIGNATURE",
 			"oauth_signature_method": "HMAC-SHA1",
 			"oauth_timestamp":        "1",
+      "oauth_token":            "ATOKEN",
 			"oauth_version":          "1.0",
 		},
 		"BODY:SUCCESS")
 
   token := &AuthorizedToken{Token: "ATOKEN", TokenSecret: "ATOKEN_SECRET"}
 
-	resp, err := c.Get("http://www.mrjon.es/someurl", make(map[string]string), token)
+	resp, err := c.Get(
+    "http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
 
 	if err != nil {
 		t.Fatal(err)
