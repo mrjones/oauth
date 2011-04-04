@@ -41,6 +41,8 @@ type Consumer struct {
 	CallbackUrl      string
 	AdditionalParams map[string]string
 
+  Debug bool
+
 	httpClient     httpClient
 	clock          clock
 	nonceGenerator nonceGenerator
@@ -224,11 +226,15 @@ func (c *Consumer) baseParams(consumerKey string, additionalParams map[string]st
 	return params
 }
 
-type SHA1Signer struct{}
+type SHA1Signer struct{
+     Debug bool
+}
 
-func (*SHA1Signer) Sign(message string, key string) string {
-	fmt.Println("Signing:" + message)
-	fmt.Println("Key:" + key)
+func (s *SHA1Signer) Sign(message string, key string) string {
+  if s.Debug {
+	   fmt.Println("Signing:" + message)
+	   fmt.Println("Key:" + key)
+  }
 	hashfun := hmac.NewSHA1([]byte(key))
 	hashfun.Write([]byte(message))
 	rawsignature := hashfun.Sum()
@@ -259,20 +265,22 @@ func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("About to readbody")
 	bytes, err := ioutil.ReadAll(resp.Body)
-	fmt.Println("Done readbody")
 	resp.Body.Close()
 	if err != nil {
 		return nil, err
 	}
 	str := string(bytes)
-	fmt.Println("BODY RESPONSE: " + str)
+  if c.Debug {
+  	fmt.Println("BODY RESPONSE: " + str)
+  }
 	return &str, nil
 }
 
 func (c *Consumer) get(url string, oauthParams *OrderedParams) (*http.Response, os.Error) {
-	fmt.Println("GET url: " + url)
+  if c.Debug {
+  	fmt.Println("GET url: " + url)
+  }
 
 	var req http.Request
 	req.Method = "GET"
@@ -283,15 +291,17 @@ func (c *Consumer) get(url string, oauthParams *OrderedParams) (*http.Response, 
 	}
 	req.URL = parsedurl
 
-	authhdr := "OAuth "
+	oauthHdr := "OAuth "
 	for pos, key := range oauthParams.Keys() {
 		if pos > 0 {
-			authhdr += ",\n    "
+			oauthHdr += ",\n    "
 		}
-		authhdr += key + "=\"" + oauthParams.Get(key) + "\""
+		oauthHdr += key + "=\"" + oauthParams.Get(key) + "\""
 	}
-	fmt.Println("AUTH-HDR: " + authhdr)
-	req.Header.Add("Authorization", authhdr)
+  if c.Debug {
+  	fmt.Println("AUTH-HDR: " + oauthHdr)
+  }
+	req.Header.Add("Authorization", oauthHdr)
 
 	return c.httpClient.Do(&req)
 }
