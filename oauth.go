@@ -208,7 +208,7 @@ func (c *Consumer) init() {
 		c.nonceGenerator = rand.New(rand.NewSource(c.clock.Seconds()))
 	}
 	if c.signer == nil {
-		c.signer = &SHA1Signer{}
+		c.signer = &SHA1Signer{Debug: c.Debug}
 	}
 }
 
