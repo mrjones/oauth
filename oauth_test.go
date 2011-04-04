@@ -3,6 +3,7 @@ package oauth
 import (
 	"http"
 	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -88,6 +89,40 @@ func TestSuccessfulTokenAuthorization(t *testing.T) {
 	assertEq(t, "ATOKEN", authToken.Token)
 	assertEq(t, "ATOKEN_SECRET", authToken.TokenSecret)
 	assertEq(t, "consumersecret&UTOKEN_SECRET", m.signer.UsedKey)
+}
+
+func TestSuccessfulAuthorizedGet(t *testing.T) {
+	c := basicConsumer()
+  m := newMocks(t)
+  m.install(c)
+
+	m.httpClient.ExpectGet(
+		"http://www.mrjon.es/someurl",
+		map[string]string{
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_version":          "1.0",
+		},
+		"BODY:SUCCESS")
+
+  token := &AuthorizedToken{Token: "ATOKEN", TokenSecret: "ATOKEN_SECRET"}
+
+	resp, err := c.Get("http://www.mrjon.es/someurl", make(map[string]string), token)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "consumersecret&ATOKEN_SECRET", m.signer.UsedKey)
+
+  body, err := ioutil.ReadAll(resp.Body)
+  if err != nil {
+     t.Fatal(err)
+  }
+  assertEq(t, "BODY:SUCCESS", string(body))
 }
 
 
