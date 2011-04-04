@@ -41,7 +41,7 @@ type Consumer struct {
 	CallbackUrl      string
 	AdditionalParams map[string]string
 
-  Debug bool
+	Debug bool
 
 	httpClient     httpClient
 	clock          clock
@@ -226,15 +226,15 @@ func (c *Consumer) baseParams(consumerKey string, additionalParams map[string]st
 	return params
 }
 
-type SHA1Signer struct{
-     Debug bool
+type SHA1Signer struct {
+	Debug bool
 }
 
 func (s *SHA1Signer) Sign(message string, key string) string {
-  if s.Debug {
-	   fmt.Println("Signing:" + message)
-	   fmt.Println("Key:" + key)
-  }
+	if s.Debug {
+		fmt.Println("Signing:" + message)
+		fmt.Println("Key:" + key)
+	}
 	hashfun := hmac.NewSHA1([]byte(key))
 	hashfun.Write([]byte(message))
 	rawsignature := hashfun.Sum()
@@ -271,16 +271,16 @@ func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.
 		return nil, err
 	}
 	str := string(bytes)
-  if c.Debug {
-  	fmt.Println("BODY RESPONSE: " + str)
-  }
+	if c.Debug {
+		fmt.Println("BODY RESPONSE: " + str)
+	}
 	return &str, nil
 }
 
 func (c *Consumer) get(url string, oauthParams *OrderedParams) (*http.Response, os.Error) {
-  if c.Debug {
-  	fmt.Println("GET url: " + url)
-  }
+	if c.Debug {
+		fmt.Println("GET url: " + url)
+	}
 
 	var req http.Request
 	req.Method = "GET"
@@ -298,9 +298,9 @@ func (c *Consumer) get(url string, oauthParams *OrderedParams) (*http.Response, 
 		}
 		oauthHdr += key + "=\"" + oauthParams.Get(key) + "\""
 	}
-  if c.Debug {
-  	fmt.Println("AUTH-HDR: " + oauthHdr)
-  }
+	if c.Debug {
+		fmt.Println("AUTH-HDR: " + oauthHdr)
+	}
 	req.Header.Add("Authorization", oauthHdr)
 
 	return c.httpClient.Do(&req)

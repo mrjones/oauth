@@ -10,32 +10,32 @@ import (
 )
 
 type Mocks struct {
-     httpClient *MockHttpClient
-     clock *MockClock
-     nonceGenerator *MockNonceGenerator
-     signer *MockSigner
+	httpClient     *MockHttpClient
+	clock          *MockClock
+	nonceGenerator *MockNonceGenerator
+	signer         *MockSigner
 }
 
 func newMocks(t *testing.T) *Mocks {
-     return &Mocks{
-            httpClient: NewMockHttpClient(t),
-            clock: &MockClock{Time: 1},
-            nonceGenerator: &MockNonceGenerator{Nonce: 2},
-            signer: &MockSigner{},
-     }
+	return &Mocks{
+		httpClient:     NewMockHttpClient(t),
+		clock:          &MockClock{Time: 1},
+		nonceGenerator: &MockNonceGenerator{Nonce: 2},
+		signer:         &MockSigner{},
+	}
 }
 
 func (m *Mocks) install(c *Consumer) {
-     c.httpClient = m.httpClient
-     c.clock = m.clock
-     c.nonceGenerator = m.nonceGenerator
-     c.signer = m.signer
+	c.httpClient = m.httpClient
+	c.clock = m.clock
+	c.nonceGenerator = m.nonceGenerator
+	c.signer = m.signer
 }
 
 func TestSuccessfulTokenRequest(t *testing.T) {
 	c := basicConsumer()
-  m := newMocks(t)
-  m.install(c)
+	m := newMocks(t)
+	m.install(c)
 
 	m.httpClient.ExpectGet(
 		"http://www.mrjon.es/requesttoken",
@@ -50,7 +50,6 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 		},
 		"oauth_token=TOKEN&oauth_token_secret=SECRET")
 
-
 	token, url, err := c.GetRequestTokenAndUrl()
 
 	if err != nil {
@@ -64,8 +63,8 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 
 func TestSuccessfulTokenAuthorization(t *testing.T) {
 	c := basicConsumer()
-  m := newMocks(t)
-  m.install(c)
+	m := newMocks(t)
+	m.install(c)
 
 	m.httpClient.ExpectGet(
 		"http://www.mrjon.es/accesstoken",
@@ -75,13 +74,13 @@ func TestSuccessfulTokenAuthorization(t *testing.T) {
 			"oauth_signature":        "MOCK_SIGNATURE",
 			"oauth_signature_method": "HMAC-SHA1",
 			"oauth_timestamp":        "1",
-      "oauth_token":            "UTOKEN",
-      "oauth_verifier":         "VERIFICATION_CODE",
+			"oauth_token":            "UTOKEN",
+			"oauth_verifier":         "VERIFICATION_CODE",
 			"oauth_version":          "1.0",
 		},
 		"oauth_token=ATOKEN&oauth_token_secret=ATOKEN_SECRET")
 
-  token := &UnauthorizedToken{Token: "UTOKEN", TokenSecret: "UTOKEN_SECRET"}
+	token := &UnauthorizedToken{Token: "UTOKEN", TokenSecret: "UTOKEN_SECRET"}
 
 	authToken, err := c.AuthorizeToken(token, "VERIFICATION_CODE")
 
@@ -95,8 +94,8 @@ func TestSuccessfulTokenAuthorization(t *testing.T) {
 
 func TestSuccessfulAuthorizedGet(t *testing.T) {
 	c := basicConsumer()
-  m := newMocks(t)
-  m.install(c)
+	m := newMocks(t)
+	m.install(c)
 
 	m.httpClient.ExpectGet(
 		"http://www.mrjon.es/someurl?key=val",
@@ -106,15 +105,15 @@ func TestSuccessfulAuthorizedGet(t *testing.T) {
 			"oauth_signature":        "MOCK_SIGNATURE",
 			"oauth_signature_method": "HMAC-SHA1",
 			"oauth_timestamp":        "1",
-      "oauth_token":            "ATOKEN",
+			"oauth_token":            "ATOKEN",
 			"oauth_version":          "1.0",
 		},
 		"BODY:SUCCESS")
 
-  token := &AuthorizedToken{Token: "ATOKEN", TokenSecret: "ATOKEN_SECRET"}
+	token := &AuthorizedToken{Token: "ATOKEN", TokenSecret: "ATOKEN_SECRET"}
 
 	resp, err := c.Get(
-    "http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
+		"http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
 
 	if err != nil {
 		t.Fatal(err)
@@ -122,11 +121,11 @@ func TestSuccessfulAuthorizedGet(t *testing.T) {
 
 	assertEq(t, "consumersecret&ATOKEN_SECRET", m.signer.UsedKey)
 
-  body, err := ioutil.ReadAll(resp.Body)
-  if err != nil {
-     t.Fatal(err)
-  }
-  assertEq(t, "BODY:SUCCESS", string(body))
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "BODY:SUCCESS", string(body))
 }
 
 
