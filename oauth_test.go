@@ -8,11 +8,35 @@ import (
 	"testing"
 )
 
+type Mocks struct {
+     httpClient *MockHttpClient
+     clock *MockClock
+     nonceGenerator *MockNonceGenerator
+     signer *MockSigner
+}
+
+func newMocks(t *testing.T) *Mocks {
+     return &Mocks{
+            httpClient: NewMockHttpClient(t),
+            clock: &MockClock{Time: 1},
+            nonceGenerator: &MockNonceGenerator{Nonce: 2},
+            signer: &MockSigner{},
+     }
+}
+
+func (m *Mocks) install(c *Consumer) {
+     c.httpClient = m.httpClient
+     c.clock = m.clock
+     c.nonceGenerator = m.nonceGenerator
+     c.signer = m.signer
+}
+
 func TestSuccessfulTokenRequest(t *testing.T) {
 	c := basicConsumer()
+  m := newMocks(t)
+  m.install(c)
 
-	mockClient := NewMockHttpClient(t)
-	mockClient.ExpectGet(
+	m.httpClient.ExpectGet(
 		"http://www.mrjon.es/requesttoken",
 		map[string]string{
 			"oauth_callback":         http.URLEscape("http://www.mrjon.es/callback"),
@@ -25,11 +49,6 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 		},
 		"oauth_token=TOKEN&oauth_token_secret=SECRET")
 
-	c.httpClient = mockClient
-	c.clock = &MockClock{Time: 1}
-	c.nonceGenerator = &MockNonceGenerator{Nonce: 2}
-	mockSigner := &MockSigner{}
-	c.signer = mockSigner
 
 	token, url, err := c.GetRequestTokenAndUrl()
 
@@ -38,9 +57,39 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 	}
 	assertEq(t, "TOKEN", token.Token)
 	assertEq(t, "SECRET", token.TokenSecret)
-	assertEq(t, "consumersecret&", mockSigner.UsedKey)
+	assertEq(t, "consumersecret&", m.signer.UsedKey)
 	assertEq(t, "http://www.mrjon.es/authorizetoken?oauth_token=TOKEN", *url)
 }
+
+func TestSuccessfulTokenAuthorization(t *testing.T) {
+	c := basicConsumer()
+  m := newMocks(t)
+  m.install(c)
+
+	m.httpClient.ExpectGet(
+		"http://www.mrjon.es/accesstoken",
+		map[string]string{
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_version":          "1.0",
+		},
+		"oauth_token=ATOKEN&oauth_token_secret=ATOKEN_SECRET")
+
+  token := &UnauthorizedToken{Token: "UTOKEN", TokenSecret: "UTOKEN_SECRET"}
+
+	authToken, err := c.AuthorizeToken(token, "VERIFICATION_CODE")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "ATOKEN", authToken.Token)
+	assertEq(t, "ATOKEN_SECRET", authToken.TokenSecret)
+	assertEq(t, "consumersecret&UTOKEN_SECRET", m.signer.UsedKey)
+}
+
 
 func basicConsumer() *Consumer {
 	return &Consumer{
