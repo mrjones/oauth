@@ -54,8 +54,6 @@ type Consumer struct {
 
 	Debug bool
 
-	TokenStore TokenStore
-
 	// Private seams for mocking dependencies when testing
 	httpClient     httpClient
 	clock          clock
@@ -63,32 +61,9 @@ type Consumer struct {
 	signer         signer
 }
 
-type TokenStore interface {
-	Put(token, secret string) os.Error
-	Get(token string) (secret string, err os.Error)
-}
-
 type AuthorizedToken struct {
 	Token       string
 	TokenSecret string
-}
-
-type InMemoryTokenStore struct {
-	storage map[string]string
-}
-
-func NewInMemoryTokenStore() *InMemoryTokenStore {
-	return &InMemoryTokenStore{storage: make(map[string]string)}
-}
-
-func (s *InMemoryTokenStore) Put(token, secret string) os.Error {
-	fmt.Println(token + "->" + secret)
-	s.storage[token] = secret
-	return nil
-}
-
-func (s *InMemoryTokenStore) Get(token string) (secret string, err os.Error) {
-	return s.storage[token], nil;
 }
 
 func (c *Consumer) GetRequestTokenAndUrl() (rtoken *RequestToken, url string, err os.Error) {
@@ -110,8 +85,6 @@ func (c *Consumer) GetRequestTokenAndUrl() (rtoken *RequestToken, url string, er
 
 	url = c.AuthorizeTokenUrl + "?oauth_token=" + token
 
-//	c.TokenStore.Put(token, secret)
-
 	return &RequestToken{Token:token, Secret:secret}, url, nil
 }
 
@@ -121,8 +94,6 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 	params.Add(VERIFIER_PARAM, verificationCode)
 	params.Add(TOKEN_PARAM, rtoken.Token)
 
-//	usecret, err := c.TokenStore.Get(utoken)
-	
 	req := newGetRequest(c.AccessTokenUrl, params)
 	c.signRequest(req, c.makeKey(rtoken.Secret))
 
@@ -132,7 +103,6 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 	if err != nil {
 		return nil, err
 	}
-//	c.TokenStore.Put(atoken, asecret)
 	return &AccessToken{Token: token, Secret: secret},	nil
 }
 
@@ -151,10 +121,6 @@ func (c *Consumer) Get(url string, userParams map[string]string, token *AccessTo
 		}
 	}
 
-//	secret, err := c.TokenStore.Get(atoken)
-//	if err != nil {
-//		return nil, err
-//	}
 	key := c.makeKey(token.Secret)
 
 	base_string := c.requestString("GET", url, allParams)
@@ -241,9 +207,6 @@ func (c *Consumer) init() {
 	}
 	if c.signer == nil {
 		c.signer = &SHA1Signer{Debug: c.Debug}
-	}
-	if c.TokenStore == nil {
-		c.TokenStore = NewInMemoryTokenStore()
 	}
 }
 
