@@ -43,6 +43,7 @@ type Consumer struct {
 
 	Debug bool
 
+	// Private seams for mocking dependencies when testing
 	httpClient     httpClient
 	clock          clock
 	nonceGenerator nonceGenerator
@@ -57,45 +58,6 @@ type UnauthorizedToken struct {
 type AuthorizedToken struct {
 	Token       string
 	TokenSecret string
-}
-
-type request struct {
-	method      string
-	url         string
-	oauthParams *OrderedParams
-	userParams  map[string]string
-}
-
-// Private seams for testing
-
-type httpClient interface {
-	Do(req *http.Request) (resp *http.Response, err os.Error)
-}
-
-type clock interface {
-	Seconds() int64
-}
-
-type nonceGenerator interface {
-	Int63() int64
-}
-
-type signer interface {
-	Sign(message, key string) string
-}
-
-type defaultClock struct{}
-
-func (*defaultClock) Seconds() int64 {
-	return time.Seconds()
-}
-
-func newGetRequest(url string, oauthParams *OrderedParams) *request {
-	return &request{
-		method:      "GET",
-		url:         url,
-		oauthParams: oauthParams,
-	}
 }
 
 func (c *Consumer) GetRequestTokenAndUrl() (*UnauthorizedToken, *string, os.Error) {
@@ -122,12 +84,6 @@ func (c *Consumer) GetRequestTokenAndUrl() (*UnauthorizedToken, *string, os.Erro
 		TokenSecret: *secret,
 	},
 		&url, nil
-}
-
-func (c *Consumer) signRequest(req *request, key string) *request {
-	base_string := c.requestString(req.method, req.url, req.oauthParams)
-	req.oauthParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
-	return req
 }
 
 func (c *Consumer) AuthorizeToken(unauthToken *UnauthorizedToken, verificationCode string) (*AuthorizedToken, os.Error) {
@@ -176,6 +132,51 @@ func (c *Consumer) Get(url string, userParams map[string]string, token *Authoriz
 
 	return c.get(url+queryParams, authParams)
 }
+
+type request struct {
+	method      string
+	url         string
+	oauthParams *OrderedParams
+	userParams  map[string]string
+}
+
+type httpClient interface {
+	Do(req *http.Request) (resp *http.Response, err os.Error)
+}
+
+type clock interface {
+	Seconds() int64
+}
+
+type nonceGenerator interface {
+	Int63() int64
+}
+
+type signer interface {
+	Sign(message, key string) string
+}
+
+type defaultClock struct{}
+
+func (*defaultClock) Seconds() int64 {
+	return time.Seconds()
+}
+
+func newGetRequest(url string, oauthParams *OrderedParams) *request {
+	return &request{
+		method:      "GET",
+		url:         url,
+		oauthParams: oauthParams,
+	}
+}
+
+
+func (c *Consumer) signRequest(req *request, key string) *request {
+	base_string := c.requestString(req.method, req.url, req.oauthParams)
+	req.oauthParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
+	return req
+}
+
 
 func (c *Consumer) makeKey(tokenSecret string) string {
 	return escape(c.ConsumerSecret) + "&" + escape(tokenSecret)
