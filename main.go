@@ -33,10 +33,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Token: " + token.Token)
-	fmt.Println("Token Secret: " + token.TokenSecret)
+	fmt.Println("Token: " + token)
+//	fmt.Println("Token Secret: " + token.TokenSecret)
 
-	fmt.Println(*url + "&domain=mrjon.es&granularity=best&location=all")
+	fmt.Println(url + "&domain=mrjon.es&granularity=best&location=all")
 
 	fmt.Printf("Grant access, and then enter the verification code here: ")
 
