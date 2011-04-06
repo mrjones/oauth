@@ -83,17 +83,20 @@ func TestSuccessfulTokenAuthorization(t *testing.T) {
 		},
 		"oauth_token=ATOKEN&oauth_token_secret=ATOKEN_SECRET")
 
-//	token := &UnauthorizedToken{Token: "UTOKEN", TokenSecret: "UTOKEN_SECRET"}
     c.init()
     c.TokenStore.Put("UTOKEN", "UTOKEN_SECRET")
 
-	authToken, err := c.AuthorizeToken("UTOKEN", "VERIFICATION_CODE")
-
+	atoken, err := c.AuthorizeToken("UTOKEN", "VERIFICATION_CODE")
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertEq(t, "ATOKEN", authToken.Token)
-	assertEq(t, "ATOKEN_SECRET", authToken.TokenSecret)
+  asecret, err := c.TokenStore.Get("ATOKEN")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "ATOKEN", atoken)
+	assertEq(t, "ATOKEN_SECRET", asecret)
 	assertEq(t, "consumersecret&UTOKEN_SECRET", m.signer.UsedKey)
 }
 
@@ -115,10 +118,11 @@ func TestSuccessfulAuthorizedGet(t *testing.T) {
 		},
 		"BODY:SUCCESS")
 
-	token := &AuthorizedToken{Token: "ATOKEN", TokenSecret: "ATOKEN_SECRET"}
+  c.init()
+  c.TokenStore.Put("ATOKEN", "ATOKEN_SECRET")
 
 	resp, err := c.Get(
-		"http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
+		"http://www.mrjon.es/someurl", map[string]string{"key": "val"}, "ATOKEN")
 
 	if err != nil {
 		t.Fatal(err)

@@ -57,11 +57,6 @@ type TokenStore interface {
 	Get(token string) (secret string, err os.Error)
 }
 
-type UnauthorizedToken struct {
-	Token       string
-	TokenSecret string
-}
-
 type AuthorizedToken struct {
 	Token       string
 	TokenSecret string
@@ -76,6 +71,7 @@ func NewInMemoryTokenStore() *InMemoryTokenStore {
 }
 
 func (s *InMemoryTokenStore) Put(token, secret string) os.Error {
+	fmt.Println(token + "->" + secret)
 	s.storage[token] = secret
 	return nil
 }
@@ -108,33 +104,31 @@ func (c *Consumer) GetRequestTokenAndUrl() (token string, url string, err os.Err
 	return token, url, nil
 }
 
-func (c *Consumer) AuthorizeToken(token string, verificationCode string) (*AuthorizedToken, os.Error) {
+func (c *Consumer) AuthorizeToken(utoken string, verificationCode string) (atoken string, err os.Error) {
 	params := c.baseParams(c.ConsumerKey, c.AdditionalParams)
 
 	params.Add(VERIFIER_PARAM, verificationCode)
-	params.Add(TOKEN_PARAM, token)
+	params.Add(TOKEN_PARAM, utoken)
 
-	usecret, err := c.TokenStore.Get(token)
+	usecret, err := c.TokenStore.Get(utoken)
 	
 	req := newGetRequest(c.AccessTokenUrl, params)
 	c.signRequest(req, c.makeKey(usecret))
 
 	resp, err := c.getBody(c.AccessTokenUrl, params)
 
-	token, asecret, err := parseTokenAndSecret(*resp)
+	atoken, asecret, err := parseTokenAndSecret(*resp)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return &AuthorizedToken{
-		Token:       token,
-		TokenSecret: asecret,
-	},
-		nil
+	fmt.Println("2:" + atoken + "->" + asecret)
+	c.TokenStore.Put(atoken, asecret)
+	return atoken,	nil
 }
 
-func (c *Consumer) Get(url string, userParams map[string]string, atoken *AuthorizedToken) (*http.Response, os.Error) {
+func (c *Consumer) Get(url string, userParams map[string]string, atoken string) (*http.Response, os.Error) {
 	allParams := c.baseParams(c.ConsumerKey, c.AdditionalParams)
-	allParams.Add(TOKEN_PARAM, atoken.Token)
+	allParams.Add(TOKEN_PARAM, atoken)
 	authParams := allParams.Clone()
 
 	queryParams := ""
@@ -147,7 +141,11 @@ func (c *Consumer) Get(url string, userParams map[string]string, atoken *Authori
 		}
 	}
 
-	key := c.makeKey(atoken.TokenSecret)
+	secret, err := c.TokenStore.Get(atoken)
+	if err != nil {
+		return nil, err
+	}
+	key := c.makeKey(secret)
 
 	base_string := c.requestString("GET", url, allParams)
 	authParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))

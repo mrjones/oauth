@@ -24,7 +24,8 @@ func main() {
 	AuthorizeTokenUrl: "https://www.google.com/latitude/apps/OAuthAuthorizeToken",
 	AccessTokenUrl:    "https://www.google.com/accounts/OAuthGetAccessToken",
 		
-	CallbackUrl:      "http://www.mrjon.es/foobar",
+//	CallbackUrl:      "http://www.mrjon.es/foobar",
+	CallbackUrl:      "oob",
 	AdditionalParams: make(map[string]string),
 	}
 
