@@ -29,6 +29,17 @@ const (
 	VERSION_PARAM          = "oauth_version"
 )
 
+// Do we want separate "Request" and "Access" tokens
+type RequestToken struct {
+	Token string
+	Secret string
+}
+
+type AccessToken struct {
+	Token string
+	Secret string
+}
+
 type Consumer struct {
 	// Get these from the OAuth Service Provider
 	ConsumerKey    string
@@ -80,7 +91,7 @@ func (s *InMemoryTokenStore) Get(token string) (secret string, err os.Error) {
 	return s.storage[token], nil;
 }
 
-func (c *Consumer) GetRequestTokenAndUrl() (token string, url string, err os.Error) {
+func (c *Consumer) GetRequestTokenAndUrl() (rtoken *RequestToken, url string, err os.Error) {
 	params := c.baseParams(c.ConsumerKey, c.AdditionalParams)
 	params.Add(CALLBACK_PARAM, c.CallbackUrl)
 
@@ -89,46 +100,45 @@ func (c *Consumer) GetRequestTokenAndUrl() (token string, url string, err os.Err
 
 	resp, err := c.getBody(c.RequestTokenUrl, params)
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
 
 	token, secret, err := parseTokenAndSecret(*resp)
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
 
 	url = c.AuthorizeTokenUrl + "?oauth_token=" + token
 
-	c.TokenStore.Put(token, secret)
+//	c.TokenStore.Put(token, secret)
 
-	return token, url, nil
+	return &RequestToken{Token:token, Secret:secret}, url, nil
 }
 
-func (c *Consumer) AuthorizeToken(utoken string, verificationCode string) (atoken string, err os.Error) {
+func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string) (atoken *AccessToken, err os.Error) {
 	params := c.baseParams(c.ConsumerKey, c.AdditionalParams)
 
 	params.Add(VERIFIER_PARAM, verificationCode)
-	params.Add(TOKEN_PARAM, utoken)
+	params.Add(TOKEN_PARAM, rtoken.Token)
 
-	usecret, err := c.TokenStore.Get(utoken)
+//	usecret, err := c.TokenStore.Get(utoken)
 	
 	req := newGetRequest(c.AccessTokenUrl, params)
-	c.signRequest(req, c.makeKey(usecret))
+	c.signRequest(req, c.makeKey(rtoken.Secret))
 
 	resp, err := c.getBody(c.AccessTokenUrl, params)
 
-	atoken, asecret, err := parseTokenAndSecret(*resp)
+	token, secret, err := parseTokenAndSecret(*resp)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	fmt.Println("2:" + atoken + "->" + asecret)
-	c.TokenStore.Put(atoken, asecret)
-	return atoken,	nil
+//	c.TokenStore.Put(atoken, asecret)
+	return &AccessToken{Token: token, Secret: secret},	nil
 }
 
-func (c *Consumer) Get(url string, userParams map[string]string, atoken string) (*http.Response, os.Error) {
+func (c *Consumer) Get(url string, userParams map[string]string, token *AccessToken) (*http.Response, os.Error) {
 	allParams := c.baseParams(c.ConsumerKey, c.AdditionalParams)
-	allParams.Add(TOKEN_PARAM, atoken)
+	allParams.Add(TOKEN_PARAM, token.Token)
 	authParams := allParams.Clone()
 
 	queryParams := ""
@@ -141,11 +151,11 @@ func (c *Consumer) Get(url string, userParams map[string]string, atoken string) 
 		}
 	}
 
-	secret, err := c.TokenStore.Get(atoken)
-	if err != nil {
-		return nil, err
-	}
-	key := c.makeKey(secret)
+//	secret, err := c.TokenStore.Get(atoken)
+//	if err != nil {
+//		return nil, err
+//	}
+	key := c.makeKey(token.Secret)
 
 	base_string := c.requestString("GET", url, allParams)
 	authParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))

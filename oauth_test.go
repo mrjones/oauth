@@ -51,15 +51,12 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 		"oauth_token=TOKEN&oauth_token_secret=SECRET")
 
 	token, url, err := c.GetRequestTokenAndUrl()
-
 	if err != nil {
 		t.Fatal(err)
 	}
 
-  secret, err := c.TokenStore.Get(token)
-
-	assertEq(t, "TOKEN", token)
-	assertEq(t, "SECRET", secret)
+	assertEq(t, "TOKEN", token.Token)
+	assertEq(t, "SECRET", token.Secret)
 	assertEq(t, "consumersecret&", m.signer.UsedKey)
 	assertEq(t, "http://www.mrjon.es/authorizetoken?oauth_token=TOKEN", url)
 }
@@ -77,27 +74,21 @@ func TestSuccessfulTokenAuthorization(t *testing.T) {
 			"oauth_signature":        "MOCK_SIGNATURE",
 			"oauth_signature_method": "HMAC-SHA1",
 			"oauth_timestamp":        "1",
-			"oauth_token":            "UTOKEN",
+			"oauth_token":            "RTOKEN",
 			"oauth_verifier":         "VERIFICATION_CODE",
 			"oauth_version":          "1.0",
 		},
 		"oauth_token=ATOKEN&oauth_token_secret=ATOKEN_SECRET")
 
-    c.init()
-    c.TokenStore.Put("UTOKEN", "UTOKEN_SECRET")
-
-	atoken, err := c.AuthorizeToken("UTOKEN", "VERIFICATION_CODE")
-	if err != nil {
-		t.Fatal(err)
-	}
-  asecret, err := c.TokenStore.Get("ATOKEN")
+  rtoken := &RequestToken{Token: "RTOKEN", Secret: "RSECRET"}
+	atoken, err := c.AuthorizeToken(rtoken, "VERIFICATION_CODE")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	assertEq(t, "ATOKEN", atoken)
-	assertEq(t, "ATOKEN_SECRET", asecret)
-	assertEq(t, "consumersecret&UTOKEN_SECRET", m.signer.UsedKey)
+	assertEq(t, "ATOKEN", atoken.Token)
+	assertEq(t, "ATOKEN_SECRET", atoken.Secret)
+	assertEq(t, "consumersecret&RSECRET", m.signer.UsedKey)
 }
 
 func TestSuccessfulAuthorizedGet(t *testing.T) {
@@ -113,22 +104,21 @@ func TestSuccessfulAuthorizedGet(t *testing.T) {
 			"oauth_signature":        "MOCK_SIGNATURE",
 			"oauth_signature_method": "HMAC-SHA1",
 			"oauth_timestamp":        "1",
-			"oauth_token":            "ATOKEN",
+			"oauth_token":            "TOKEN",
 			"oauth_version":          "1.0",
 		},
 		"BODY:SUCCESS")
 
-  c.init()
-  c.TokenStore.Put("ATOKEN", "ATOKEN_SECRET")
+  token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
 
 	resp, err := c.Get(
-		"http://www.mrjon.es/someurl", map[string]string{"key": "val"}, "ATOKEN")
+		"http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	assertEq(t, "consumersecret&ATOKEN_SECRET", m.signer.UsedKey)
+	assertEq(t, "consumersecret&SECRET", m.signer.UsedKey)
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
