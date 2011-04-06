@@ -55,8 +55,11 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+  secret, err := c.TokenStore.Get(token)
+
 	assertEq(t, "TOKEN", token)
-//	assertEq(t, "SECRET", token.TokenSecret)
+	assertEq(t, "SECRET", secret)
 	assertEq(t, "consumersecret&", m.signer.UsedKey)
 	assertEq(t, "http://www.mrjon.es/authorizetoken?oauth_token=TOKEN", url)
 }
