@@ -55,10 +55,10 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertEq(t, "TOKEN", token.Token)
-	assertEq(t, "SECRET", token.TokenSecret)
+	assertEq(t, "TOKEN", token)
+//	assertEq(t, "SECRET", token.TokenSecret)
 	assertEq(t, "consumersecret&", m.signer.UsedKey)
-	assertEq(t, "http://www.mrjon.es/authorizetoken?oauth_token=TOKEN", *url)
+	assertEq(t, "http://www.mrjon.es/authorizetoken?oauth_token=TOKEN", url)
 }
 
 func TestSuccessfulTokenAuthorization(t *testing.T) {
@@ -80,9 +80,11 @@ func TestSuccessfulTokenAuthorization(t *testing.T) {
 		},
 		"oauth_token=ATOKEN&oauth_token_secret=ATOKEN_SECRET")
 
-	token := &UnauthorizedToken{Token: "UTOKEN", TokenSecret: "UTOKEN_SECRET"}
+//	token := &UnauthorizedToken{Token: "UTOKEN", TokenSecret: "UTOKEN_SECRET"}
+    c.init()
+    c.TokenStore.Put("UTOKEN", "UTOKEN_SECRET")
 
-	authToken, err := c.AuthorizeToken(token, "VERIFICATION_CODE")
+	authToken, err := c.AuthorizeToken("UTOKEN", "VERIFICATION_CODE")
 
 	if err != nil {
 		t.Fatal(err)

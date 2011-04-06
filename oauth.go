@@ -43,11 +43,18 @@ type Consumer struct {
 
 	Debug bool
 
+	TokenStore TokenStore
+
 	// Private seams for mocking dependencies when testing
 	httpClient     httpClient
 	clock          clock
 	nonceGenerator nonceGenerator
 	signer         signer
+}
+
+type TokenStore interface {
+	Put(token, secret string) os.Error
+	Get(token string) (secret string, err os.Error)
 }
 
 type UnauthorizedToken struct {
@@ -60,7 +67,24 @@ type AuthorizedToken struct {
 	TokenSecret string
 }
 
-func (c *Consumer) GetRequestTokenAndUrl() (*UnauthorizedToken, *string, os.Error) {
+type InMemoryTokenStore struct {
+	storage map[string]string
+}
+
+func NewInMemoryTokenStore() *InMemoryTokenStore {
+	return &InMemoryTokenStore{storage: make(map[string]string)}
+}
+
+func (s *InMemoryTokenStore) Put(token, secret string) os.Error {
+	s.storage[token] = secret
+	return nil
+}
+
+func (s *InMemoryTokenStore) Get(token string) (secret string, err os.Error) {
+	return s.storage[token], nil;
+}
+
+func (c *Consumer) GetRequestTokenAndUrl() (token string, url string, err os.Error) {
 	params := c.baseParams(c.ConsumerKey, c.AdditionalParams)
 	params.Add(CALLBACK_PARAM, c.CallbackUrl)
 
@@ -69,47 +93,48 @@ func (c *Consumer) GetRequestTokenAndUrl() (*UnauthorizedToken, *string, os.Erro
 
 	resp, err := c.getBody(c.RequestTokenUrl, params)
 	if err != nil {
-		return nil, nil, err
+		return "", "", err
 	}
 
 	token, secret, err := parseTokenAndSecret(*resp)
 	if err != nil {
-		return nil, nil, err
+		return "", "", err
 	}
 
-	url := c.AuthorizeTokenUrl + "?oauth_token=" + *token
+	url = c.AuthorizeTokenUrl + "?oauth_token=" + token
 
-	return &UnauthorizedToken{
-		Token:       *token,
-		TokenSecret: *secret,
-	},
-		&url, nil
+	c.TokenStore.Put(token, secret)
+
+	return token, url, nil
 }
 
-func (c *Consumer) AuthorizeToken(unauthToken *UnauthorizedToken, verificationCode string) (*AuthorizedToken, os.Error) {
+func (c *Consumer) AuthorizeToken(token string, verificationCode string) (*AuthorizedToken, os.Error) {
 	params := c.baseParams(c.ConsumerKey, c.AdditionalParams)
 
 	params.Add(VERIFIER_PARAM, verificationCode)
-	params.Add(TOKEN_PARAM, unauthToken.Token)
+	params.Add(TOKEN_PARAM, token)
 
+	usecret, err := c.TokenStore.Get(token)
+	
 	req := newGetRequest(c.AccessTokenUrl, params)
-	c.signRequest(req, c.makeKey(unauthToken.TokenSecret))
+	c.signRequest(req, c.makeKey(usecret))
 
 	resp, err := c.getBody(c.AccessTokenUrl, params)
 
-	token, secret, err := parseTokenAndSecret(*resp)
+	token, asecret, err := parseTokenAndSecret(*resp)
 	if err != nil {
 		return nil, err
 	}
 	return &AuthorizedToken{
-		Token:       *token,
-		TokenSecret: *secret,
+		Token:       token,
+		TokenSecret: asecret,
 	},
 		nil
 }
 
-func (c *Consumer) Get(url string, userParams map[string]string, token *AuthorizedToken) (*http.Response, os.Error) {
+func (c *Consumer) Get(url string, userParams map[string]string, atoken *AuthorizedToken) (*http.Response, os.Error) {
 	allParams := c.baseParams(c.ConsumerKey, c.AdditionalParams)
+	allParams.Add(TOKEN_PARAM, atoken.Token)
 	authParams := allParams.Clone()
 
 	queryParams := ""
@@ -122,10 +147,7 @@ func (c *Consumer) Get(url string, userParams map[string]string, token *Authoriz
 		}
 	}
 
-	allParams.Add(TOKEN_PARAM, token.Token)
-	authParams.Add(TOKEN_PARAM, token.Token)
-
-	key := c.makeKey(token.TokenSecret)
+	key := c.makeKey(atoken.TokenSecret)
 
 	base_string := c.requestString("GET", url, allParams)
 	authParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
@@ -182,23 +204,24 @@ func (c *Consumer) makeKey(tokenSecret string) string {
 	return escape(c.ConsumerSecret) + "&" + escape(tokenSecret)
 }
 
-func parseTokenAndSecret(data string) (*string, *string, os.Error) {
+func parseTokenAndSecret(data string) (string, string, os.Error) {
 	parts, err := http.ParseQuery(data)
 	if err != nil {
-		return nil, nil, err
+		return "", "", err
 	}
 
 	if len(parts[TOKEN_PARAM]) < 1 {
-		return nil, nil, os.NewError("Missing " + TOKEN_PARAM + " in response.")
+		return "", "", os.NewError("Missing " + TOKEN_PARAM + " in response.")
 	}
 	if len(parts[TOKEN_SECRET_PARAM]) < 1 {
-		return nil, nil, os.NewError("Missing " + TOKEN_SECRET_PARAM + " in response.")
+		return "", "", os.NewError("Missing " + TOKEN_SECRET_PARAM + " in response.")
 	}
 
-	return &parts[TOKEN_PARAM][0], &parts[TOKEN_SECRET_PARAM][0], nil
+	return parts[TOKEN_PARAM][0], parts[TOKEN_SECRET_PARAM][0], nil
 }
 
 func (c *Consumer) init() {
+	// TODO(mrjones): this doesn't seem right
 	if c.clock == nil {
 		c.clock = &defaultClock{}
 	}
@@ -210,6 +233,9 @@ func (c *Consumer) init() {
 	}
 	if c.signer == nil {
 		c.signer = &SHA1Signer{Debug: c.Debug}
+	}
+	if c.TokenStore == nil {
+		c.TokenStore = NewInMemoryTokenStore()
 	}
 }
 
