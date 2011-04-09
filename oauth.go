@@ -29,7 +29,7 @@ const (
 	VERSION_PARAM          = "oauth_version"
 )
 
-// Do we want separate "Request" and "Access" tokens
+// Do we want separate "Request" and "Access" tokens?
 type RequestToken struct {
 	Token string
 	Secret string
@@ -59,11 +59,6 @@ type Consumer struct {
 	clock          clock
 	nonceGenerator nonceGenerator
 	signer         signer
-}
-
-type AuthorizedToken struct {
-	Token       string
-	TokenSecret string
 }
 
 func (c *Consumer) GetRequestTokenAndUrl() (rtoken *RequestToken, url string, err os.Error) {
@@ -166,7 +161,6 @@ func newGetRequest(url string, oauthParams *OrderedParams) *request {
 	}
 }
 
-
 func (c *Consumer) signRequest(req *request, key string) *request {
 	base_string := c.requestString(req.method, req.url, req.oauthParams)
 	req.oauthParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
@@ -268,8 +262,13 @@ func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, os.NewError("HTTP response is not 200/OK as expected. Actual response: '" +
+			resp.Status + "' (Code: " + strconv.Itoa(resp.StatusCode) + ")")
+	}
 	str := string(bytes)
 	if c.Debug {
+		fmt.Printf("STATUS: %d %s\n", resp.StatusCode, resp.Status)
 		fmt.Println("BODY RESPONSE: " + str)
 	}
 	return &str, nil

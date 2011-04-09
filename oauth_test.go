@@ -61,6 +61,21 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 	assertEq(t, "http://www.mrjon.es/authorizetoken?oauth_token=TOKEN", url)
 }
 
+func Test404OnTokenRequest(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ReturnStatusCode(404, "Not Found")
+
+	_, _, err := c.GetRequestTokenAndUrl()
+	if err == nil {
+		t.Fatal("Should have raised an error")
+	}
+	t.Fatal(err)
+}
+
+
 func TestSuccessfulTokenAuthorization(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
@@ -154,35 +169,44 @@ type MockHttpClient struct {
 	url          string
 	oAuthChecker *OAuthChecker
 	responseBody string
+	statusCode   int
 
 	t *testing.T
 }
 
 func NewMockHttpClient(t *testing.T) *MockHttpClient {
-	return &MockHttpClient{t: t}
+	return &MockHttpClient{t: t, statusCode: 200}
 }
 
 func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, os.Error) {
-	if req.URL.String() != mock.url {
+	if mock.url != "" && req.URL.String() != mock.url {
 		mock.t.Fatalf("URLs did not match.\nExpected: '%s'\nActual: '%s'",
 			mock.url, req.URL.String())
 	}
-	if req.Header == nil {
-		mock.t.Fatal("Missing 'Authorization' header.")
+	if mock.oAuthChecker != nil {
+		if req.Header == nil {
+			mock.t.Fatal("Missing 'Authorization' header.")
+		}
+		mock.oAuthChecker.CheckHeader(req.Header.Get("Authorization"))
 	}
-	mock.oAuthChecker.CheckHeader(req.Header.Get("Authorization"))
 
 	return &http.Response{
-		StatusCode: 200,
+		StatusCode: mock.statusCode,
 		Body:       NewMockBody(mock.responseBody),
 	},
 		nil
 }
 
-func (mock *MockHttpClient) ExpectGet(expectedUrl string, expectedOAuthPairs map[string]string, responseBody string) {
+func (mock *MockHttpClient) ExpectGet(
+	  expectedUrl string, expectedOAuthPairs map[string]string, responseBody string) {
 	mock.url = expectedUrl
 	mock.oAuthChecker = NewOAuthChecker(mock.t, expectedOAuthPairs)
 	mock.responseBody = responseBody
+}
+
+func (mock *MockHttpClient) ReturnStatusCode(statusCode int, body string) {
+	mock.statusCode = statusCode
+	mock.responseBody = body
 }
 
 type OAuthChecker struct {
