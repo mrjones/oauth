@@ -16,7 +16,6 @@ func main() {
 	var consumerKey *string = flag.String("consumerkey", "", "")
 	var consumerSecret *string = flag.String("consumersecret", "", "")
 	var apiKey *string = flag.String("apikey", "", "")
-
 	flag.Parse()
 
 	c := &oauth.Consumer{

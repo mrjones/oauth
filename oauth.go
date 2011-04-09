@@ -40,14 +40,17 @@ type AccessToken struct {
 	Secret string
 }
 
+type ServiceProvider struct {
+	RequestTokenUrl   string
+	AuthorizeTokenUrl string
+	AccessTokenUrl    string	
+}
+
 type Consumer struct {
-	// Get these from the OAuth Service Provider
 	ConsumerKey    string
 	ConsumerSecret string
 
-	RequestTokenUrl   string
-	AuthorizeTokenUrl string
-	AccessTokenUrl    string
+	ServiceProvider ServiceProvider
 
 	CallbackUrl      string
 	AdditionalParams map[string]string
@@ -61,14 +64,28 @@ type Consumer struct {
 	signer         signer
 }
 
+func NewConsumer(consumerKey string, consumerSecret string, serviceProvider ServiceProvider, callbackUrl string) *Consumer {
+	clock := &defaultClock{}
+	return &Consumer{
+	ConsumerKey: consumerKey,
+	ConsumerSecret: consumerSecret,
+	ServiceProvider: serviceProvider,
+	CallbackUrl: callbackUrl,
+		clock: clock,
+		httpClient: &http.Client{},
+		nonceGenerator: rand.New(rand.NewSource(clock.Seconds())),
+		signer: &SHA1Signer{},
+	}
+}
+
 func (c *Consumer) GetRequestTokenAndUrl() (rtoken *RequestToken, url string, err os.Error) {
 	params := c.baseParams(c.ConsumerKey, c.AdditionalParams)
 	params.Add(CALLBACK_PARAM, c.CallbackUrl)
 
-	req := newGetRequest(c.RequestTokenUrl, params)
+	req := newGetRequest(c.ServiceProvider.RequestTokenUrl, params)
 	c.signRequest(req, c.makeKey("")) // We don't have a token secret for the key yet
 
-	resp, err := c.getBody(c.RequestTokenUrl, params)
+	resp, err := c.getBody(c.ServiceProvider.RequestTokenUrl, params)
 	if err != nil {
 		return nil, "", err
 	}
@@ -78,7 +95,7 @@ func (c *Consumer) GetRequestTokenAndUrl() (rtoken *RequestToken, url string, er
 		return nil, "", err
 	}
 
-	url = c.AuthorizeTokenUrl + "?oauth_token=" + token
+	url = c.ServiceProvider.AuthorizeTokenUrl + "?oauth_token=" + token
 
 	return &RequestToken{Token:token, Secret:secret}, url, nil
 }
@@ -89,10 +106,10 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 	params.Add(VERIFIER_PARAM, verificationCode)
 	params.Add(TOKEN_PARAM, rtoken.Token)
 
-	req := newGetRequest(c.AccessTokenUrl, params)
+	req := newGetRequest(c.ServiceProvider.AccessTokenUrl, params)
 	c.signRequest(req, c.makeKey(rtoken.Secret))
 
-	resp, err := c.getBody(c.AccessTokenUrl, params)
+	resp, err := c.getBody(c.ServiceProvider.AccessTokenUrl, params)
 	if err != nil {
 		return nil, err
 	}
@@ -193,24 +210,7 @@ func parseTokenAndSecret(data string) (string, string, os.Error) {
 	return parts[TOKEN_PARAM][0], parts[TOKEN_SECRET_PARAM][0], nil
 }
 
-func (c *Consumer) init() {
-	// TODO(mrjones): this doesn't seem right
-	if c.clock == nil {
-		c.clock = &defaultClock{}
-	}
-	if c.httpClient == nil {
-		c.httpClient = &http.Client{}
-	}
-	if c.nonceGenerator == nil {
-		c.nonceGenerator = rand.New(rand.NewSource(c.clock.Seconds()))
-	}
-	if c.signer == nil {
-		c.signer = &SHA1Signer{Debug: c.Debug}
-	}
-}
-
 func (c *Consumer) baseParams(consumerKey string, additionalParams map[string]string) *OrderedParams {
-	c.init()
 	params := NewOrderedParams()
 	params.Add(VERSION_PARAM, OAUTH_VERSION)
 	params.Add(SIGNATURE_METHOD_PARAM, SIGNATURE_METHOD)
@@ -307,10 +307,10 @@ func (c *Consumer) get(url string, oauthParams *OrderedParams) (*http.Response, 
 		bytes, _ := ioutil.ReadAll(resp.Body)
 		resp.Body.Close()
 
-		return nil, os.NewError("HTTP response is not 200/OK as expected. Actual response: " +
-			"Status: '" + resp.Status + "' " +
-			"Code: " + strconv.Itoa(resp.StatusCode) + " " +
-			"Body: " + string(bytes))
+		return nil, os.NewError("HTTP response is not 200/OK as expected. Actual response: \n" +
+			"\tStatus: '" + resp.Status + "'\n" +
+			"\tCode: " + strconv.Itoa(resp.StatusCode) + "\n" +
+			"\tBody: " + string(bytes))
 	}
 
 	return resp, err

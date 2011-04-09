@@ -218,14 +218,15 @@ func TestMissingRequestToken(t *testing.T) {
 
 
 func basicConsumer() *Consumer {
-	return &Consumer{
-		ConsumerKey:       "consumerkey",
-		ConsumerSecret:    "consumersecret",
+	return NewConsumer(
+		"consumerkey",
+		"consumersecret",
+		ServiceProvider{ 
 		RequestTokenUrl:   "http://www.mrjon.es/requesttoken",
 		AuthorizeTokenUrl: "http://www.mrjon.es/authorizetoken",
 		AccessTokenUrl:    "http://www.mrjon.es/accesstoken",
-		CallbackUrl:       "http://www.mrjon.es/callback",
-	}
+		},
+		"http://www.mrjon.es/callback")
 }
 
 func assertEq(t *testing.T, expected interface{}, actual interface{}) {
