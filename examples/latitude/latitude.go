@@ -1,11 +1,11 @@
-package main
+package latitude
 
 import (
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"../../oauth"
+	"github.com/mrjones/oauth"
 )
 
 const (
@@ -29,6 +29,7 @@ func main() {
 		
 		CallbackUrl:      "oob",
 		AdditionalParams: make(map[string]string),
+	Debug: true,
 	}
 
 	c.AdditionalParams["scope"] = "https://www.googleapis.com/auth/latitude"

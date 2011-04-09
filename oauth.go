@@ -182,10 +182,12 @@ func parseTokenAndSecret(data string) (string, string, os.Error) {
 	}
 
 	if len(parts[TOKEN_PARAM]) < 1 {
-		return "", "", os.NewError("Missing " + TOKEN_PARAM + " in response.")
+		return "", "", os.NewError("Missing " + TOKEN_PARAM + " in response. " +
+			"Full response body: '" + data + "'")
 	}
 	if len(parts[TOKEN_SECRET_PARAM]) < 1 {
-		return "", "", os.NewError("Missing " + TOKEN_SECRET_PARAM + " in response.")
+		return "", "", os.NewError("Missing " + TOKEN_SECRET_PARAM + " in response." +
+			"Full response body: '" + data + "'")
 	}
 
 	return parts[TOKEN_PARAM][0], parts[TOKEN_SECRET_PARAM][0], nil
@@ -302,8 +304,13 @@ func (c *Consumer) get(url string, oauthParams *OrderedParams) (*http.Response, 
 	resp, err := c.httpClient.Do(&req)
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, os.NewError("HTTP response is not 200/OK as expected. Actual response: '" +
-			resp.Status + "' (Code: " + strconv.Itoa(resp.StatusCode) + ")")
+		bytes, _ := ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		return nil, os.NewError("HTTP response is not 200/OK as expected. Actual response: " +
+			"Status: '" + resp.Status + "' " +
+			"Code: " + strconv.Itoa(resp.StatusCode) + " " +
+			"Body: " + string(bytes))
 	}
 
 	return resp, err
