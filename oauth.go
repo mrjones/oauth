@@ -47,14 +47,13 @@ type ServiceProvider struct {
 }
 
 type Consumer struct {
-	ConsumerKey    string
-	ConsumerSecret string
+	consumerKey    string
+	consumerSecret string
+	serviceProvider ServiceProvider
+	callbackUrl      string
 
-	ServiceProvider ServiceProvider
-
-	CallbackUrl      string
+	// TODO(mrjones): provide setters/methods for these?
 	AdditionalParams map[string]string
-
 	Debug bool
 
 	// Private seams for mocking dependencies when testing
@@ -64,13 +63,18 @@ type Consumer struct {
 	signer         signer
 }
 
-func NewConsumer(consumerKey string, consumerSecret string, serviceProvider ServiceProvider, callbackUrl string) *Consumer {
-	clock := &defaultClock{}
+// TODO(mrjones): document this better
+func NewConsumer(
+		consumerKey string,
+		consumerSecret string,
+		serviceProvider ServiceProvider,
+		callbackUrl string) *Consumer {
+		clock := &defaultClock{}
 	return &Consumer{
-	ConsumerKey: consumerKey,
-	ConsumerSecret: consumerSecret,
-	ServiceProvider: serviceProvider,
-	CallbackUrl: callbackUrl,
+		consumerKey: consumerKey,
+		consumerSecret: consumerSecret,
+		serviceProvider: serviceProvider,
+		callbackUrl: callbackUrl,
 		clock: clock,
 		httpClient: &http.Client{},
 		nonceGenerator: rand.New(rand.NewSource(clock.Seconds())),
@@ -79,13 +83,13 @@ func NewConsumer(consumerKey string, consumerSecret string, serviceProvider Serv
 }
 
 func (c *Consumer) GetRequestTokenAndUrl() (rtoken *RequestToken, url string, err os.Error) {
-	params := c.baseParams(c.ConsumerKey, c.AdditionalParams)
-	params.Add(CALLBACK_PARAM, c.CallbackUrl)
+	params := c.baseParams(c.consumerKey, c.AdditionalParams)
+	params.Add(CALLBACK_PARAM, c.callbackUrl)
 
-	req := newGetRequest(c.ServiceProvider.RequestTokenUrl, params)
+	req := newGetRequest(c.serviceProvider.RequestTokenUrl, params)
 	c.signRequest(req, c.makeKey("")) // We don't have a token secret for the key yet
 
-	resp, err := c.getBody(c.ServiceProvider.RequestTokenUrl, params)
+	resp, err := c.getBody(c.serviceProvider.RequestTokenUrl, params)
 	if err != nil {
 		return nil, "", err
 	}
@@ -95,21 +99,21 @@ func (c *Consumer) GetRequestTokenAndUrl() (rtoken *RequestToken, url string, er
 		return nil, "", err
 	}
 
-	url = c.ServiceProvider.AuthorizeTokenUrl + "?oauth_token=" + token
+	url = c.serviceProvider.AuthorizeTokenUrl + "?oauth_token=" + token
 
 	return &RequestToken{Token:token, Secret:secret}, url, nil
 }
 
 func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string) (atoken *AccessToken, err os.Error) {
-	params := c.baseParams(c.ConsumerKey, c.AdditionalParams)
+	params := c.baseParams(c.consumerKey, c.AdditionalParams)
 
 	params.Add(VERIFIER_PARAM, verificationCode)
 	params.Add(TOKEN_PARAM, rtoken.Token)
 
-	req := newGetRequest(c.ServiceProvider.AccessTokenUrl, params)
+	req := newGetRequest(c.serviceProvider.AccessTokenUrl, params)
 	c.signRequest(req, c.makeKey(rtoken.Secret))
 
-	resp, err := c.getBody(c.ServiceProvider.AccessTokenUrl, params)
+	resp, err := c.getBody(c.serviceProvider.AccessTokenUrl, params)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +126,7 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 }
 
 func (c *Consumer) Get(url string, userParams map[string]string, token *AccessToken) (*http.Response, os.Error) {
-	allParams := c.baseParams(c.ConsumerKey, c.AdditionalParams)
+	allParams := c.baseParams(c.consumerKey, c.AdditionalParams)
 	allParams.Add(TOKEN_PARAM, token.Token)
 	authParams := allParams.Clone()
 
@@ -189,7 +193,7 @@ func (c *Consumer) signRequest(req *request, key string) *request {
 
 
 func (c *Consumer) makeKey(tokenSecret string) string {
-	return escape(c.ConsumerSecret) + "&" + escape(tokenSecret)
+	return escape(c.consumerSecret) + "&" + escape(tokenSecret)
 }
 
 func parseTokenAndSecret(data string) (string, string, os.Error) {
