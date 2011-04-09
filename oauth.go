@@ -79,7 +79,7 @@ func NewConsumer(
 		nonceGenerator: rand.New(rand.NewSource(clock.Seconds())),
 		signer: &SHA1Signer{},
 
-		AdditionalParams: make(map[string]string)
+		AdditionalParams: make(map[string]string),
 	}
 }
 
