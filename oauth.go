@@ -52,7 +52,6 @@ type Consumer struct {
 	serviceProvider ServiceProvider
 	callbackUrl      string
 
-	// TODO(mrjones): provide setters/methods for these?
 	AdditionalParams map[string]string
 	Debug bool
 
@@ -79,6 +78,8 @@ func NewConsumer(
 		httpClient: &http.Client{},
 		nonceGenerator: rand.New(rand.NewSource(clock.Seconds())),
 		signer: &SHA1Signer{},
+
+		AdditionalParams: make(map[string]string)
 	}
 }
 

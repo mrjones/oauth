@@ -18,18 +18,15 @@ func main() {
 	var apiKey *string = flag.String("apikey", "", "")
 	flag.Parse()
 
-	c := &oauth.Consumer{
-		ConsumerKey:    *consumerKey,
-		ConsumerSecret: *consumerSecret,
-
-		RequestTokenUrl:   "https://www.google.com/accounts/OAuthGetRequestToken",
-		AuthorizeTokenUrl: "https://www.google.com/latitude/apps/OAuthAuthorizeToken",
-		AccessTokenUrl:    "https://www.google.com/accounts/OAuthGetAccessToken",
-		
-		CallbackUrl:      "oob",
-		AdditionalParams: make(map[string]string),
-	Debug: true,
-	}
+	c := NewConsumer(
+		*consumerKey,
+		*consumerSecret,
+		ServiceProvider{
+			RequestTokenUrl:   "https://www.google.com/accounts/OAuthGetRequestToken",
+			AuthorizeTokenUrl: "https://www.google.com/latitude/apps/OAuthAuthorizeToken",
+			AccessTokenUrl:    "https://www.google.com/accounts/OAuthGetAccessToken",
+		},
+		"oob")
 
 	c.AdditionalParams["scope"] = "https://www.googleapis.com/auth/latitude"
 	requestToken, url, err := c.GetRequestTokenAndUrl()
