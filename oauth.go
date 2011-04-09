@@ -31,29 +31,29 @@ const (
 
 // Do we want separate "Request" and "Access" tokens?
 type RequestToken struct {
-	Token string
+	Token  string
 	Secret string
 }
 
 type AccessToken struct {
-	Token string
+	Token  string
 	Secret string
 }
 
 type ServiceProvider struct {
 	RequestTokenUrl   string
 	AuthorizeTokenUrl string
-	AccessTokenUrl    string	
+	AccessTokenUrl    string
 }
 
 type Consumer struct {
-	consumerKey    string
-	consumerSecret string
+	consumerKey     string
+	consumerSecret  string
 	serviceProvider ServiceProvider
-	callbackUrl      string
+	callbackUrl     string
 
 	AdditionalParams map[string]string
-	Debug bool
+	Debug            bool
 
 	// Private seams for mocking dependencies when testing
 	httpClient     httpClient
@@ -63,21 +63,20 @@ type Consumer struct {
 }
 
 // TODO(mrjones): document this better
-func NewConsumer(
-		consumerKey string,
-		consumerSecret string,
-		serviceProvider ServiceProvider,
-		callbackUrl string) *Consumer {
-		clock := &defaultClock{}
+func NewConsumer(consumerKey string,
+consumerSecret string,
+serviceProvider ServiceProvider,
+callbackUrl string) *Consumer {
+	clock := &defaultClock{}
 	return &Consumer{
-		consumerKey: consumerKey,
-		consumerSecret: consumerSecret,
+		consumerKey:     consumerKey,
+		consumerSecret:  consumerSecret,
 		serviceProvider: serviceProvider,
-		callbackUrl: callbackUrl,
-		clock: clock,
-		httpClient: &http.Client{},
-		nonceGenerator: rand.New(rand.NewSource(clock.Seconds())),
-		signer: &SHA1Signer{},
+		callbackUrl:     callbackUrl,
+		clock:           clock,
+		httpClient:      &http.Client{},
+		nonceGenerator:  rand.New(rand.NewSource(clock.Seconds())),
+		signer:          &SHA1Signer{},
 
 		AdditionalParams: make(map[string]string),
 	}
@@ -102,7 +101,7 @@ func (c *Consumer) GetRequestTokenAndUrl() (rtoken *RequestToken, url string, er
 
 	url = c.serviceProvider.AuthorizeTokenUrl + "?oauth_token=" + token
 
-	return &RequestToken{Token:token, Secret:secret}, url, nil
+	return &RequestToken{Token: token, Secret: secret}, url, nil
 }
 
 func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string) (atoken *AccessToken, err os.Error) {
@@ -123,7 +122,7 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 	if err != nil {
 		return nil, err
 	}
-	return &AccessToken{Token: token, Secret: secret},	nil
+	return &AccessToken{Token: token, Secret: secret}, nil
 }
 
 func (c *Consumer) Get(url string, userParams map[string]string, token *AccessToken) (*http.Response, os.Error) {

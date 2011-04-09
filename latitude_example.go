@@ -26,7 +26,7 @@ func main() {
 		RequestTokenUrl:   "https://www.google.com/accounts/OAuthGetRequestToken",
 		AuthorizeTokenUrl: "https://www.google.com/latitude/apps/OAuthAuthorizeToken",
 		AccessTokenUrl:    "https://www.google.com/accounts/OAuthGetAccessToken",
-		
+
 		CallbackUrl:      "oob",
 		AdditionalParams: make(map[string]string),
 	}

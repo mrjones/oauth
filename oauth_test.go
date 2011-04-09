@@ -80,7 +80,7 @@ func TestSuccessfulTokenAuthorization(t *testing.T) {
 		},
 		"oauth_token=ATOKEN&oauth_token_secret=ATOKEN_SECRET")
 
-  rtoken := &RequestToken{Token: "RTOKEN", Secret: "RSECRET"}
+	rtoken := &RequestToken{Token: "RTOKEN", Secret: "RSECRET"}
 	atoken, err := c.AuthorizeToken(rtoken, "VERIFICATION_CODE")
 	if err != nil {
 		t.Fatal(err)
@@ -109,7 +109,7 @@ func TestSuccessfulAuthorizedGet(t *testing.T) {
 		},
 		"BODY:SUCCESS")
 
-  token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
+	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
 
 	resp, err := c.Get(
 		"http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
@@ -147,7 +147,7 @@ func Test404OnAuthorizationRequest(t *testing.T) {
 
 	m.httpClient.ReturnStatusCode(404, "Not Found")
 
-  rtoken := &RequestToken{Token: "RTOKEN", Secret: "RSECRET"}
+	rtoken := &RequestToken{Token: "RTOKEN", Secret: "RSECRET"}
 	_, err := c.AuthorizeToken(rtoken, "VERIFICATION_CODE")
 	if err == nil {
 		t.Fatal("Should have raised an error")
@@ -161,7 +161,7 @@ func Test404OnGet(t *testing.T) {
 
 	m.httpClient.ReturnStatusCode(404, "Not Found")
 
-  atoken := &AccessToken{Token: "ATOKEN", Secret: "ASECRET"}
+	atoken := &AccessToken{Token: "ATOKEN", Secret: "ASECRET"}
 	_, err := c.Get("URL", map[string]string{}, atoken)
 	if err == nil {
 		t.Fatal("Should have raised an error")
@@ -172,7 +172,7 @@ func TestMissingRequestTokenSecret(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
 	m.install(c)
-	
+
 	m.httpClient.ExpectGet(
 		"http://www.mrjon.es/requesttoken",
 		map[string]string{
@@ -196,7 +196,7 @@ func TestMissingRequestToken(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
 	m.install(c)
-	
+
 	m.httpClient.ExpectGet(
 		"http://www.mrjon.es/requesttoken",
 		map[string]string{
@@ -221,10 +221,10 @@ func basicConsumer() *Consumer {
 	return NewConsumer(
 		"consumerkey",
 		"consumersecret",
-		ServiceProvider{ 
-		RequestTokenUrl:   "http://www.mrjon.es/requesttoken",
-		AuthorizeTokenUrl: "http://www.mrjon.es/authorizetoken",
-		AccessTokenUrl:    "http://www.mrjon.es/accesstoken",
+		ServiceProvider{
+			RequestTokenUrl:   "http://www.mrjon.es/requesttoken",
+			AuthorizeTokenUrl: "http://www.mrjon.es/authorizetoken",
+			AccessTokenUrl:    "http://www.mrjon.es/accesstoken",
 		},
 		"http://www.mrjon.es/callback")
 }
@@ -272,8 +272,7 @@ func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, os.Error) {
 		nil
 }
 
-func (mock *MockHttpClient) ExpectGet(
-	  expectedUrl string, expectedOAuthPairs map[string]string, responseBody string) {
+func (mock *MockHttpClient) ExpectGet(expectedUrl string, expectedOAuthPairs map[string]string, responseBody string) {
 	mock.url = expectedUrl
 	mock.oAuthChecker = NewOAuthChecker(mock.t, expectedOAuthPairs)
 	mock.responseBody = responseBody
