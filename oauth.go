@@ -93,6 +93,9 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 	c.signRequest(req, c.makeKey(rtoken.Secret))
 
 	resp, err := c.getBody(c.AccessTokenUrl, params)
+	if err != nil {
+		return nil, err
+	}
 
 	token, secret, err := parseTokenAndSecret(*resp)
 	if err != nil {
@@ -262,10 +265,6 @@ func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, os.NewError("HTTP response is not 200/OK as expected. Actual response: '" +
-			resp.Status + "' (Code: " + strconv.Itoa(resp.StatusCode) + ")")
-	}
 	str := string(bytes)
 	if c.Debug {
 		fmt.Printf("STATUS: %d %s\n", resp.StatusCode, resp.Status)
@@ -300,7 +299,14 @@ func (c *Consumer) get(url string, oauthParams *OrderedParams) (*http.Response, 
 	}
 	req.Header.Add("Authorization", oauthHdr)
 
-	return c.httpClient.Do(&req)
+	resp, err := c.httpClient.Do(&req)
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, os.NewError("HTTP response is not 200/OK as expected. Actual response: '" +
+			resp.Status + "' (Code: " + strconv.Itoa(resp.StatusCode) + ")")
+	}
+
+	return resp, err
 }
 
 //

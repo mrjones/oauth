@@ -61,21 +61,6 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 	assertEq(t, "http://www.mrjon.es/authorizetoken?oauth_token=TOKEN", url)
 }
 
-func Test404OnTokenRequest(t *testing.T) {
-	c := basicConsumer()
-	m := newMocks(t)
-	m.install(c)
-
-	m.httpClient.ReturnStatusCode(404, "Not Found")
-
-	_, _, err := c.GetRequestTokenAndUrl()
-	if err == nil {
-		t.Fatal("Should have raised an error")
-	}
-	t.Fatal(err)
-}
-
-
 func TestSuccessfulTokenAuthorization(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
@@ -140,6 +125,47 @@ func TestSuccessfulAuthorizedGet(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertEq(t, "BODY:SUCCESS", string(body))
+}
+
+func Test404OnTokenRequest(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ReturnStatusCode(404, "Not Found")
+
+	_, _, err := c.GetRequestTokenAndUrl()
+	if err == nil {
+		t.Fatal("Should have raised an error")
+	}
+}
+
+func Test404OnAuthorizationRequest(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ReturnStatusCode(404, "Not Found")
+
+  rtoken := &RequestToken{Token: "RTOKEN", Secret: "RSECRET"}
+	_, err := c.AuthorizeToken(rtoken, "VERIFICATION_CODE")
+	if err == nil {
+		t.Fatal("Should have raised an error")
+	}
+}
+
+func Test404OnGet(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ReturnStatusCode(404, "Not Found")
+
+  atoken := &AccessToken{Token: "ATOKEN", Secret: "ASECRET"}
+	_, err := c.Get("URL", map[string]string{}, atoken)
+	if err == nil {
+		t.Fatal("Should have raised an error")
+	}
 }
 
 
