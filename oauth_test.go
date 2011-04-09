@@ -168,6 +168,54 @@ func Test404OnGet(t *testing.T) {
 	}
 }
 
+func TestMissingRequestTokenSecret(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+	
+	m.httpClient.ExpectGet(
+		"http://www.mrjon.es/requesttoken",
+		map[string]string{
+			"oauth_callback":         http.URLEscape("http://www.mrjon.es/callback"),
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_version":          "1.0",
+		},
+		"oauth_token=TOKEN") // Missing token_secret
+
+	_, _, err := c.GetRequestTokenAndUrl()
+	if err == nil {
+		t.Fatal("Should have raised an error")
+	}
+}
+
+func TestMissingRequestToken(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+	
+	m.httpClient.ExpectGet(
+		"http://www.mrjon.es/requesttoken",
+		map[string]string{
+			"oauth_callback":         http.URLEscape("http://www.mrjon.es/callback"),
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_version":          "1.0",
+		},
+		"oauth_token_secret=SECRET") // Missing token
+
+	_, _, err := c.GetRequestTokenAndUrl()
+	if err == nil {
+		t.Fatal("Should have raised an error")
+	}
+}
+
 
 func basicConsumer() *Consumer {
 	return &Consumer{
