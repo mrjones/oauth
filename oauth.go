@@ -267,6 +267,11 @@ func (c *Consumer) Put(url string, body string, userParams map[string]string, to
 	return c.makeAuthorizedRequest("PUT", url, body, userParams, token)
 }
 
+func (c *Consumer) Debug(enabled bool) {
+	c.debug = enabled
+	c.signer.Debug(enabled)
+}
+
 func (c *Consumer) makeAuthorizedRequest(method string, url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
 	allParams := c.baseParams(c.consumerKey, c.AdditionalParams)
 	allParams.Add(TOKEN_PARAM, token.Token)
@@ -311,6 +316,7 @@ type nonceGenerator interface {
 
 type signer interface {
 	Sign(message, key string) string
+	Debug(enabled bool)
 }
 
 type defaultClock struct{}
@@ -371,6 +377,10 @@ func (c *Consumer) baseParams(consumerKey string, additionalParams map[string]st
 
 type SHA1Signer struct {
 	debug bool
+}
+
+func (s *SHA1Signer) Debug(enabled bool) {
+	s.debug = enabled;
 }
 
 func (s *SHA1Signer) Sign(message string, key string) string {

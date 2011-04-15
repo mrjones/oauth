@@ -428,3 +428,5 @@ func (m *MockSigner) Sign(message string, key string) string {
 	m.SignedString = message
 	return "MOCK_SIGNATURE"
 }
+
+func (m *MockSigner) Debug(enabled bool) { }
