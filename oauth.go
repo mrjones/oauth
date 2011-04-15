@@ -38,11 +38,13 @@ import (
 	"encoding/base64"
 	"fmt"
 	"http"
+	"io"
 	"io/ioutil"
 	"os"
 	"rand"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -253,10 +255,14 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 // - err:
 //   Set only if there was an error, nil otherwise.
 func (c *Consumer) Get(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
-	return c.makeAuthorizedRequest("GET", url, userParams, token)
+	return c.makeAuthorizedRequest("GET", url, "", userParams, token)
 }
 
-func (c *Consumer) makeAuthorizedRequest(method string, url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
+func (c *Consumer) Post(url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
+	return c.makeAuthorizedRequest("GET", url, body, userParams, token)
+}
+
+func (c *Consumer) makeAuthorizedRequest(method string, url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
 	allParams := c.baseParams(c.consumerKey, c.AdditionalParams)
 	allParams.Add(TOKEN_PARAM, token.Token)
 	authParams := allParams.Clone()
@@ -276,7 +282,7 @@ func (c *Consumer) makeAuthorizedRequest(method string, url string, userParams m
 	base_string := c.requestString(method, url, allParams)
 	authParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
 
-	return c.httpExecute(method, url+queryParams, authParams)	
+	return c.httpExecute(method, url+queryParams, body, authParams)	
 }
 
 type request struct {
@@ -393,7 +399,7 @@ func (c *Consumer) requestString(method string, url string, params *OrderedParam
 }
 
 func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.Error) {
-	resp, err := c.httpExecute("GET", url, oauthParams)
+	resp, err := c.httpExecute("GET", url, "", oauthParams)
 	if err != nil {
 		return nil, err
 	}
@@ -411,7 +417,7 @@ func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.
 }
 
 func (c* Consumer) httpExecute(
-	method string, url string, oauthParams *OrderedParams) (*http.Response, os.Error) {
+	method string, url string, body string, oauthParams *OrderedParams) (*http.Response, os.Error) {
 
 	if c.debug {
 		fmt.Println("httpExecute(method: " +  method + ", url: " + url)
@@ -420,6 +426,7 @@ func (c* Consumer) httpExecute(
 	var req http.Request
 	req.Method = method
 	req.Header = http.Header{}
+	req.Body = newStringReadCloser(body)
 	parsedurl, err := http.ParseURL(url)
 	if err != nil {
 		return nil, err
@@ -450,6 +457,18 @@ func (c* Consumer) httpExecute(
 			"\tBody: " + string(bytes))
 	}
 	return resp, err
+}
+
+type stringReadCloser struct {
+	io.Reader
+}
+
+func newStringReadCloser(data string) io.ReadCloser {
+	return stringReadCloser{strings.NewReader(data)}
+}
+
+func (rc stringReadCloser) Close() os.Error {
+	return nil
 }
 
 //
