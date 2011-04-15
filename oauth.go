@@ -253,6 +253,30 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 // - err:
 //   Set only if there was an error, nil otherwise.
 func (c *Consumer) Get(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
+	return c.makeAuthorizedRequest("GET", url, userParams, token)
+//	allParams := c.baseParams(c.consumerKey, c.AdditionalParams)
+//	allParams.Add(TOKEN_PARAM, token.Token)
+//	authParams := allParams.Clone()
+//
+//	queryParams := ""
+//	separator := "?"
+//	if userParams != nil {
+//		for key, value := range userParams {
+//			allParams.Add(key, value)
+//			queryParams += separator + escape(key) + "=" + escape(value)
+//			separator = "&"
+//		}
+//	}
+//
+//	key := c.makeKey(token.Secret)
+//
+//	base_string := c.requestString("GET", url, allParams)
+//	authParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
+//
+//	return c.httpExecute("GET", url+queryParams, authParams)
+}
+
+func (c *Consumer) makeAuthorizedRequest(method string, url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
 	allParams := c.baseParams(c.consumerKey, c.AdditionalParams)
 	allParams.Add(TOKEN_PARAM, token.Token)
 	authParams := allParams.Clone()
@@ -269,10 +293,10 @@ func (c *Consumer) Get(url string, userParams map[string]string, token *AccessTo
 
 	key := c.makeKey(token.Secret)
 
-	base_string := c.requestString("GET", url, allParams)
+	base_string := c.requestString(method, url, allParams)
 	authParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
 
-	return c.httpDo("GET", url+queryParams, authParams)
+	return c.httpExecute(method, url+queryParams, authParams)	
 }
 
 type request struct {
@@ -389,7 +413,7 @@ func (c *Consumer) requestString(method string, url string, params *OrderedParam
 }
 
 func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.Error) {
-	resp, err := c.httpDo("GET", url, oauthParams)
+	resp, err := c.httpExecute("GET", url, oauthParams)
 	if err != nil {
 		return nil, err
 	}
@@ -406,11 +430,11 @@ func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.
 	return &str, nil
 }
 
-func (c* Consumer) httpDo(
+func (c* Consumer) httpExecute(
 	method string, url string, oauthParams *OrderedParams) (*http.Response, os.Error) {
 
 	if c.debug {
-		fmt.Println("httpDo(method: " +  method + ", url: " + url)
+		fmt.Println("httpExecute(method: " +  method + ", url: " + url)
 	}
 
 	var req http.Request
