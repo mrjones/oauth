@@ -272,7 +272,7 @@ func (c *Consumer) Get(url string, userParams map[string]string, token *AccessTo
 	base_string := c.requestString("GET", url, allParams)
 	authParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
 
-	return c.get(url+queryParams, authParams)
+	return c.httpDo("GET", url+queryParams, authParams)
 }
 
 type request struct {
@@ -389,7 +389,7 @@ func (c *Consumer) requestString(method string, url string, params *OrderedParam
 }
 
 func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.Error) {
-	resp, err := c.get(url, oauthParams)
+	resp, err := c.httpDo("GET", url, oauthParams)
 	if err != nil {
 		return nil, err
 	}
@@ -406,20 +406,22 @@ func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.
 	return &str, nil
 }
 
-func (c *Consumer) get(url string, oauthParams *OrderedParams) (*http.Response, os.Error) {
+func (c* Consumer) httpDo(
+	method string, url string, oauthParams *OrderedParams) (*http.Response, os.Error) {
+
 	if c.debug {
-		fmt.Println("GET url: " + url)
+		fmt.Println("httpDo(method: " +  method + ", url: " + url)
 	}
 
 	var req http.Request
-	req.Method = "GET"
+	req.Method = method
 	req.Header = http.Header{}
 	parsedurl, err := http.ParseURL(url)
 	if err != nil {
 		return nil, err
 	}
 	req.URL = parsedurl
-
+	
 	oauthHdr := "OAuth "
 	for pos, key := range oauthParams.Keys() {
 		if pos > 0 {
@@ -443,7 +445,6 @@ func (c *Consumer) get(url string, oauthParams *OrderedParams) (*http.Response, 
 			"\tCode: " + strconv.Itoa(resp.StatusCode) + "\n" +
 			"\tBody: " + string(bytes))
 	}
-
 	return resp, err
 }
 
