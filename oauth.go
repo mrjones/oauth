@@ -254,26 +254,6 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 //   Set only if there was an error, nil otherwise.
 func (c *Consumer) Get(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
 	return c.makeAuthorizedRequest("GET", url, userParams, token)
-//	allParams := c.baseParams(c.consumerKey, c.AdditionalParams)
-//	allParams.Add(TOKEN_PARAM, token.Token)
-//	authParams := allParams.Clone()
-//
-//	queryParams := ""
-//	separator := "?"
-//	if userParams != nil {
-//		for key, value := range userParams {
-//			allParams.Add(key, value)
-//			queryParams += separator + escape(key) + "=" + escape(value)
-//			separator = "&"
-//		}
-//	}
-//
-//	key := c.makeKey(token.Secret)
-//
-//	base_string := c.requestString("GET", url, allParams)
-//	authParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
-//
-//	return c.httpExecute("GET", url+queryParams, authParams)
 }
 
 func (c *Consumer) makeAuthorizedRequest(method string, url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
