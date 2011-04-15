@@ -127,6 +127,43 @@ func TestSuccessfulAuthorizedGet(t *testing.T) {
 	assertEq(t, "BODY:SUCCESS", string(body))
 }
 
+func TestSuccessfulAuthorizedPost(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ExpectPost(
+		"http://www.mrjon.es/someurl?key=val",
+		"REQUEST_BODY",
+		map[string]string{
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_token":            "TOKEN",
+			"oauth_version":          "1.0",
+		},
+		"RESPONSE_BODY:SUCCESS")
+
+	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
+
+	resp, err := c.Post(
+		"http://www.mrjon.es/someurl", "REQUEST_BODY", map[string]string{"key": "val"}, token)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "consumersecret&SECRET", m.signer.UsedKey)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "RESPONSE_BODY:SUCCESS", string(body))
+}
+
 func Test404OnTokenRequest(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
@@ -241,8 +278,13 @@ func assertEqM(t *testing.T, expected interface{}, actual interface{}, msg strin
 }
 
 type MockHttpClient struct {
-	url          string
+	// Validate the request
+	expectedUrl          string
+	expectedRequestBody string
+	expectedMethod string
 	oAuthChecker *OAuthChecker
+
+	// Return the mocked response
 	responseBody string
 	statusCode   int
 
@@ -254,9 +296,21 @@ func NewMockHttpClient(t *testing.T) *MockHttpClient {
 }
 
 func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, os.Error) {
-	if mock.url != "" && req.URL.String() != mock.url {
+	if mock.expectedMethod != "" {
+		assertEqM(mock.t, mock.expectedMethod, req.Method, "Unexpected HTTP method")
+	}
+
+	if mock.expectedRequestBody != "" {
+		actualBody, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			mock.t.Fatal(err)
+		}
+		assertEqM(mock.t, mock.expectedRequestBody, string(actualBody), "Unexpected HTTP body")
+	}
+
+	if mock.expectedUrl != "" && req.URL.String() != mock.expectedUrl {
 		mock.t.Fatalf("URLs did not match.\nExpected: '%s'\nActual: '%s'",
-			mock.url, req.URL.String())
+			mock.expectedUrl, req.URL.String())
 	}
 	if mock.oAuthChecker != nil {
 		if req.Header == nil {
@@ -273,12 +327,25 @@ func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, os.Error) {
 }
 
 func (mock *MockHttpClient) ExpectGet(expectedUrl string, expectedOAuthPairs map[string]string, responseBody string) {
-	mock.url = expectedUrl
+	mock.expectedMethod = "GET"
+	mock.expectedUrl = expectedUrl
 	mock.oAuthChecker = NewOAuthChecker(mock.t, expectedOAuthPairs)
+
 	mock.responseBody = responseBody
 }
 
+func (mock *MockHttpClient) ExpectPost(expectedUrl string, expectedRequestBody string, expectedOAuthPairs map[string]string, responseBody string) {
+	mock.expectedMethod = "POST"
+	mock.expectedUrl = expectedUrl
+	mock.expectedRequestBody = expectedRequestBody
+	mock.oAuthChecker = NewOAuthChecker(mock.t, expectedOAuthPairs)
+
+	mock.responseBody = responseBody
+}
+
+
 func (mock *MockHttpClient) ReturnStatusCode(statusCode int, body string) {
+	mock.expectedMethod = "GET"
 	mock.statusCode = statusCode
 	mock.responseBody = body
 }

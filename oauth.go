@@ -259,7 +259,7 @@ func (c *Consumer) Get(url string, userParams map[string]string, token *AccessTo
 }
 
 func (c *Consumer) Post(url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
-	return c.makeAuthorizedRequest("GET", url, body, userParams, token)
+	return c.makeAuthorizedRequest("POST", url, body, userParams, token)
 }
 
 func (c *Consumer) makeAuthorizedRequest(method string, url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
