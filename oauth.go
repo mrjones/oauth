@@ -235,9 +235,6 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 	return &AccessToken{Token: token, Secret: secret}, nil
 }
 
-// WARNING: This is especially subject to change
-// TODO(mrjones): Replace this with a more generic method, which takes httpMethod as a param?
-//
 // Executes an HTTP Get,, authorized via the AccessToken.
 // - url: 
 //   The base url, without any query params, which is being accessed
@@ -260,6 +257,14 @@ func (c *Consumer) Get(url string, userParams map[string]string, token *AccessTo
 
 func (c *Consumer) Post(url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
 	return c.makeAuthorizedRequest("POST", url, body, userParams, token)
+}
+
+func (c *Consumer) Delete(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
+	return c.makeAuthorizedRequest("DELETE", url, "", userParams, token)
+}
+
+func (c *Consumer) Put(url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
+	return c.makeAuthorizedRequest("PUT", url, body, userParams, token)
 }
 
 func (c *Consumer) makeAuthorizedRequest(method string, url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
