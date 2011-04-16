@@ -397,7 +397,10 @@ func (s *SHA1Signer) Sign(message string, key string) string {
 }
 
 func escape(input string) string {
-	return http.URLEscape(input)
+	// OAuth seems to want "%20" escaping for spaces, but URLEscape uses "+"
+  // What's the "right" way to handle this?
+  // Also this needs a unit test
+	return strings.Replace(http.URLEscape(input), "+", "%20", -1)
 }
 
 func (c *Consumer) requestString(method string, url string, params *OrderedParams) string {
@@ -512,10 +515,11 @@ func (o *OrderedParams) Keys() []string {
 }
 
 func (o *OrderedParams) Add(key, value string) {
-	o.AddUnescaped(key, http.URLEscape(value))
+	o.AddUnescaped(key, escape(value))
 }
 
 func (o *OrderedParams) AddUnescaped(key, value string) {
+	fmt.Println("PAIR: " + key + "=" + value)
 	o.allParams[key] = value
 	o.keyOrdering = append(o.keyOrdering, key)
 }
