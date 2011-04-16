@@ -282,15 +282,14 @@ func (c *Consumer) makeAuthorizedRequest(method string, url string, body string,
 	if userParams != nil {
 		for key, value := range userParams {
 			allParams.Add(key, value)
-			fmt.Println("Appending: " + escape(key) + "=" + value)
-			queryParams += separator + escape(key) + "=" + value
+			queryParams += separator + escape(key) + "=" + escape(value)
 			separator = "&"
 		}
 	}
 
 	key := c.makeKey(token.Secret)
 
-	base_string := c.requestString(method, url, allParams)
+	base_string := c.requestString(method, url+queryParams, allParams)
 	authParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
 
 	return c.httpExecute(method, url+queryParams, body, authParams)	
