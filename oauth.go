@@ -535,7 +535,7 @@ func (o *OrderedParams) Swap(i int, j int) {
 func (o *OrderedParams) Clone() *OrderedParams {
 	clone := NewOrderedParams()
 	for _, key := range o.Keys() {
-		clone.add(key, o.Get(key))
+		clone.AddUnescaped(key, o.Get(key))
 	}
 	return clone
 }
