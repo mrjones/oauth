@@ -281,7 +281,7 @@ func (c *Consumer) makeAuthorizedRequest(method string, url string, body string,
 	separator := "?"
 	if userParams != nil {
 		for key, value := range userParams {
-			allParams.AddUnescaped(key, value)
+			allParams.Add(key, value)
 			queryParams += separator + escape(key) + "=" + escape(value)
 			separator = "&"
 		}
