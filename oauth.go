@@ -289,7 +289,7 @@ func (c *Consumer) makeAuthorizedRequest(method string, url string, body string,
 
 	key := c.makeKey(token.Secret)
 
-	base_string := c.requestString(method, url+queryParams, allParams)
+	base_string := c.requestString(method, url, allParams)
 	authParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
 
 	return c.httpExecute(method, url+queryParams, body, authParams)	
@@ -512,10 +512,10 @@ func (o *OrderedParams) Keys() []string {
 }
 
 func (o *OrderedParams) Add(key, value string) {
-	o.add(key, http.URLEscape(value))
+	o.AddUnescaped(key, http.URLEscape(value))
 }
 
-func (o *OrderedParams) add(key, value string) {
+func (o *OrderedParams) AddUnescaped(key, value string) {
 	o.allParams[key] = value
 	o.keyOrdering = append(o.keyOrdering, key)
 }
