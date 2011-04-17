@@ -50,7 +50,7 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 		},
 		"oauth_token=TOKEN&oauth_token_secret=SECRET")
 
-	token, url, err := c.GetRequestTokenAndUrl()
+	token, url, err := c.GetRequestTokenAndUrl("http://www.mrjon.es/callback")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func Test404OnTokenRequest(t *testing.T) {
 
 	m.httpClient.ReturnStatusCode(404, "Not Found")
 
-	_, _, err := c.GetRequestTokenAndUrl()
+	_, _, err := c.GetRequestTokenAndUrl("callback")
 	if err == nil {
 		t.Fatal("Should have raised an error")
 	}
@@ -223,7 +223,7 @@ func TestMissingRequestTokenSecret(t *testing.T) {
 		},
 		"oauth_token=TOKEN") // Missing token_secret
 
-	_, _, err := c.GetRequestTokenAndUrl()
+		_, _, err := c.GetRequestTokenAndUrl("http://www.mrjon.es/callback")
 	if err == nil {
 		t.Fatal("Should have raised an error")
 	}
@@ -247,7 +247,7 @@ func TestMissingRequestToken(t *testing.T) {
 		},
 		"oauth_token_secret=SECRET") // Missing token
 
-	_, _, err := c.GetRequestTokenAndUrl()
+		_, _, err := c.GetRequestTokenAndUrl("http://www.mrjon.es/callback")
 	if err == nil {
 		t.Fatal("Should have raised an error")
 	}
@@ -301,8 +301,7 @@ func basicConsumer() *Consumer {
 			RequestTokenUrl:   "http://www.mrjon.es/requesttoken",
 			AuthorizeTokenUrl: "http://www.mrjon.es/authorizetoken",
 			AccessTokenUrl:    "http://www.mrjon.es/accesstoken",
-		},
-		"http://www.mrjon.es/callback")
+		})
 }
 
 func assertEq(t *testing.T, expected interface{}, actual interface{}) {

@@ -118,7 +118,6 @@ type Consumer struct {
 	consumerKey     string
 	consumerSecret  string
 	serviceProvider ServiceProvider
-	callbackUrl     string
 
 	debug            bool
 
@@ -136,6 +135,23 @@ type Consumer struct {
 // - serviceProvider:
 //   see the documentation for ServiceProvider for how to create this.
 //
+func NewConsumer(consumerKey string, consumerSecret string,
+		serviceProvider ServiceProvider) *Consumer {
+	clock := &defaultClock{}
+	return &Consumer{
+		consumerKey:     consumerKey,
+		consumerSecret:  consumerSecret,
+		serviceProvider: serviceProvider,
+		clock:           clock,
+		httpClient:      &http.Client{},
+		nonceGenerator:  rand.New(rand.NewSource(clock.Seconds())),
+		signer:          &SHA1Signer{},
+
+		AdditionalParams: make(map[string]string),
+	}
+}
+
+// Kicks off the OAuth authorization process.
 // - callbackURL
 //   Authorizing a token *requires* redirecting to the service provider. This is the URL
 //   which the service provider will redirect the user back to after that authorization
@@ -147,24 +163,8 @@ type Consumer struct {
 //     to the user, and you must provide a place for them to copy-and-paste it into.
 //   - Otherwise, the user will be redirected to callbackUrl in the browser, and will
 //     append a "oauth_verifier=<verifier>" parameter.
-func NewConsumer(consumerKey string, consumerSecret string,
-		serviceProvider ServiceProvider, callbackUrl string) *Consumer {
-	clock := &defaultClock{}
-	return &Consumer{
-		consumerKey:     consumerKey,
-		consumerSecret:  consumerSecret,
-		serviceProvider: serviceProvider,
-		callbackUrl:     callbackUrl,
-		clock:           clock,
-		httpClient:      &http.Client{},
-		nonceGenerator:  rand.New(rand.NewSource(clock.Seconds())),
-		signer:          &SHA1Signer{},
-
-		AdditionalParams: make(map[string]string),
-	}
-}
-
-// Kicks off the OAuth authorization process. This function returns:
+//
+// This function returns:
 // - rtoken:
 //   A temporary RequestToken, used during the authorization process.  You must save this
 //   since it will be necessary later in the process when calling AuthorizeToken().
@@ -175,9 +175,9 @@ func NewConsumer(consumerKey string, consumerSecret string,
 //
 // - err:
 //   Set only if there was an error, nil otherwise.
-func (c *Consumer) GetRequestTokenAndUrl() (rtoken *RequestToken, url string, err os.Error) {
+func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestToken, url string, err os.Error) {
 	params := c.baseParams(c.consumerKey, c.AdditionalParams)
-	params.Add(CALLBACK_PARAM, c.callbackUrl)
+	params.Add(CALLBACK_PARAM, callbackUrl)
 
 	req := newGetRequest(c.serviceProvider.RequestTokenUrl, params)
 	c.signRequest(req, c.makeKey("")) // We don't have a token secret for the key yet
