@@ -400,7 +400,33 @@ func escape(input string) string {
 	// OAuth seems to want "%20" escaping for spaces, but URLEscape uses "+"
   // What's the "right" way to handle this?
   // Also this needs a unit test
-	return strings.Replace(http.URLEscape(input), "+", "%20", -1)
+//	return strings.Replace(http.URLEscape(input), "+", "%20", -1)
+	return percentEscape(input)
+}
+
+func percentEscape(s string) string {
+//	j := 0
+	t := make([]byte, 0, 3 * len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if ('A' <= c && c <= 'Z' || 'a' <= c && c <= 'z' || '0' <= c && c <= '9' || c == '-' || c == '.' || c == '_' || c == '~') {
+			t = append(t, s[i])
+		} else {
+//		case shouldEscape(c, mode):
+			t = append(t, '%')
+			t = append(t, "0123456789ABCDEF"[c>>4])
+			t = append(t, "0123456789ABCDEF"[c&15])
+//			t[j] = '%'
+//			t[j+1] = "0123456789abcdef"[c>>4]
+//			t[j+2] = "0123456789abcdef"[c&15]
+//			j += 3
+//		default:
+//			append(t, s[i])
+//			t[j] = s[i]
+//			j++
+		}
+	}
+	return string(t)
 }
 
 func (c *Consumer) requestString(method string, url string, params *OrderedParams) string {
