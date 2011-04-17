@@ -396,23 +396,24 @@ func (s *SHA1Signer) Sign(message string, key string) string {
 	return string(base64signature)
 }
 
-func escape(input string) string {
-	return percentEscape(input)
-}
-
-func percentEscape(s string) string {
+func escape(s string) string {
 	t := make([]byte, 0, 3 * len(s))
 	for i := 0; i < len(s); i++ {
 		c := s[i]
-		if ('A' <= c && c <= 'Z' || 'a' <= c && c <= 'z' || '0' <= c && c <= '9' || c == '-' || c == '.' || c == '_' || c == '~') {
-			t = append(t, s[i])
-		} else {
+		if isEscapable(c) {
 			t = append(t, '%')
 			t = append(t, "0123456789ABCDEF"[c>>4])
 			t = append(t, "0123456789ABCDEF"[c&15])
+		} else {
+			t = append(t, s[i])
 		}
 	}
 	return string(t)
+}
+
+func isEscapable(b byte) bool {
+	return !('A' <= b && b <= 'Z' || 'a' <= b && b <= 'z' || '0' <= b && b <= '9' || b == '-' || b == '.' || b == '_' || b == '~')
+
 }
 
 func (c *Consumer) requestString(method string, url string, params *OrderedParams) string {
@@ -531,7 +532,6 @@ func (o *OrderedParams) Add(key, value string) {
 }
 
 func (o *OrderedParams) AddUnescaped(key, value string) {
-	fmt.Println("PAIR: " + key + "=" + value)
 	o.allParams[key] = value
 	o.keyOrdering = append(o.keyOrdering, key)
 }

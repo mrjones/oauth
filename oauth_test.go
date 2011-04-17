@@ -253,6 +253,45 @@ func TestMissingRequestToken(t *testing.T) {
 	}
 }
 
+func TestCharacterEscaping(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ExpectGet(
+		"http://www.mrjon.es/someurl?nonEscapableChars=abcABC123-._~&escapableChars=%20%21%40%23%24%25%5E%26%2A%28%29%2B",
+		map[string]string{
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_token":            "TOKEN",
+			"oauth_version":          "1.0",
+		},
+		"BODY:SUCCESS")
+
+	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
+
+	resp, err := c.Get(
+		"http://www.mrjon.es/someurl", map[string]string{
+			"nonEscapableChars": "abcABC123-._~",
+			"escapableChars": " !@#$%^&*()+",
+		}, token)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "consumersecret&SECRET", m.signer.UsedKey)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "BODY:SUCCESS", string(body))
+}
+
 
 func basicConsumer() *Consumer {
 	return NewConsumer(
