@@ -121,8 +121,10 @@ type Consumer struct {
 
 	debug            bool
 
+	// Defaults to http.Client{}
+	HttpClient     httpClient
+
 	// Private seams for mocking dependencies when testing
-	httpClient     httpClient
 	clock          clock
 	nonceGenerator nonceGenerator
 	signer         signer
@@ -143,7 +145,7 @@ func NewConsumer(consumerKey string, consumerSecret string,
 		consumerSecret:  consumerSecret,
 		serviceProvider: serviceProvider,
 		clock:           clock,
-		httpClient:      &http.Client{},
+		HttpClient:      &http.Client{},
 		nonceGenerator:  rand.New(rand.NewSource(clock.Seconds())),
 		signer:          &SHA1Signer{},
 
@@ -476,7 +478,7 @@ func (c* Consumer) httpExecute(
 	}
 	req.Header.Add("Authorization", oauthHdr)
 
-	resp, err := c.httpClient.Do(&req)
+	resp, err := c.HttpClient.Do(&req)
 
 	if err != nil {
 		return nil, err

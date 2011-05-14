@@ -26,7 +26,7 @@ func newMocks(t *testing.T) *Mocks {
 }
 
 func (m *Mocks) install(c *Consumer) {
-	c.httpClient = m.httpClient
+	c.HttpClient = m.httpClient
 	c.clock = m.clock
 	c.nonceGenerator = m.nonceGenerator
 	c.signer = m.signer
