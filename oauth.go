@@ -122,7 +122,7 @@ type Consumer struct {
 	debug            bool
 
 	// Defaults to http.Client{}
-	HttpClient     httpClient
+	HttpClient     HttpClient
 
 	// Private seams for mocking dependencies when testing
 	clock          clock
@@ -304,7 +304,7 @@ type request struct {
 	userParams  map[string]string
 }
 
-type httpClient interface {
+type HttpClient interface {
 	Do(req *http.Request) (resp *http.Response, err os.Error)
 }
 
