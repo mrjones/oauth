@@ -478,6 +478,10 @@ func (c* Consumer) httpExecute(
 
 	resp, err := c.httpClient.Do(&req)
 
+	if err != nil {
+		return nil, err
+	}
+
 	if resp.StatusCode != http.StatusOK {
 		bytes, _ := ioutil.ReadAll(resp.Body)
 		resp.Body.Close()
