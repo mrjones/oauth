@@ -403,7 +403,7 @@ func NewOAuthChecker(t *testing.T, headerPairs map[string]string) *OAuthChecker 
 func (o *OAuthChecker) CheckHeader(header string) {
 	assertEqM(o.t, "OAuth ", header[0:6], "OAuth Header did not begin correctly.")
 	paramsStr := header[6:]
-	params := strings.Split(paramsStr, "\n    ", -1)
+	params := strings.Split(paramsStr, ",", -1)
 	paramMap := make(map[string]string)
 	for _, param := range params {
 		keyvalue := strings.Split(param, "=", -1)
