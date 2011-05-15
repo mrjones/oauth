@@ -469,7 +469,7 @@ func (c* Consumer) httpExecute(
 	oauthHdr := "OAuth "
 	for pos, key := range oauthParams.Keys() {
 		if pos > 0 {
-			oauthHdr += " "
+			oauthHdr += ","
 		}
 		oauthHdr += key + "=\"" + oauthParams.Get(key) + "\""
 	}
