@@ -186,12 +186,12 @@ func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestTok
 
 	resp, err := c.getBody(c.serviceProvider.RequestTokenUrl, params)
 	if err != nil {
-		return nil, "", err
+		return nil, "", os.NewError("getBody: " + err.String())
 	}
 
 	token, secret, err := parseTokenAndSecret(*resp)
 	if err != nil {
-		return nil, "", err
+		return nil, "", os.NewError("parseTokenAndSecret: " + err.String())
 	}
 
 	url = c.serviceProvider.AuthorizeTokenUrl + "?oauth_token=" + token
@@ -434,12 +434,12 @@ func (c *Consumer) requestString(method string, url string, params *OrderedParam
 func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.Error) {
 	resp, err := c.httpExecute("GET", url, "", oauthParams)
 	if err != nil {
-		return nil, err
+		return nil, os.NewError("httpExecute: " + err.String())
 	}
 	bytes, err := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {
-		return nil, err
+		return nil, os.NewError("ReadAll: " + err.String())
 	}
 	str := string(bytes)
 	if c.debug {
@@ -462,14 +462,14 @@ func (c* Consumer) httpExecute(
 	req.Body = newStringReadCloser(body)
 	parsedurl, err := http.ParseURL(url)
 	if err != nil {
-		return nil, err
+		return nil, os.NewError("ParseUrl: " + err.String())
 	}
 	req.URL = parsedurl
 	
 	oauthHdr := "OAuth "
 	for pos, key := range oauthParams.Keys() {
 		if pos > 0 {
-			oauthHdr += ",\n    "
+			oauthHdr += " "
 		}
 		oauthHdr += key + "=\"" + oauthParams.Get(key) + "\""
 	}
@@ -481,17 +481,25 @@ func (c* Consumer) httpExecute(
 	resp, err := c.HttpClient.Do(&req)
 
 	if err != nil {
-		return nil, err
+		return nil, os.NewError("Do: " + err.String())
 	}
+
+	debugHeader := ""
+	for k, vals := range req.Header {
+    for _, val := range vals {
+   		debugHeader += "[key: " + k + ", val: " + val +"]"
+    }
+  }
 
 	if resp.StatusCode != http.StatusOK {
 		bytes, _ := ioutil.ReadAll(resp.Body)
 		resp.Body.Close()
 
 		return nil, os.NewError("HTTP response is not 200/OK as expected. Actual response: \n" +
-			"\tStatus: '" + resp.Status + "'\n" +
-			"\tCode: " + strconv.Itoa(resp.StatusCode) + "\n" +
-			"\tBody: " + string(bytes))
+			"\tResponse Status: '" + resp.Status + "'\n" +
+			"\tResponse Code: " + strconv.Itoa(resp.StatusCode) + "\n" +
+			"\tResponse Body: " + string(bytes) + "\n" +
+			"\tRequst Headers: " + debugHeader)
 	}
 	return resp, err
 }
