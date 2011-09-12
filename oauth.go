@@ -46,6 +46,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"url"
 )
 
 const (
@@ -347,7 +348,7 @@ func (c *Consumer) makeKey(tokenSecret string) string {
 }
 
 func parseTokenAndSecret(data string) (string, string, os.Error) {
-	parts, err := http.ParseQuery(data)
+	parts, err := url.ParseQuery(data)
 	if err != nil {
 		return "", "", err
 	}
@@ -436,31 +437,31 @@ func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.
 	if err != nil {
 		return nil, os.NewError("httpExecute: " + err.String())
 	}
-	bytes, err := ioutil.ReadAll(resp.Body)
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {
 		return nil, os.NewError("ReadAll: " + err.String())
 	}
-	str := string(bytes)
+	bodyStr := string(bodyBytes)
 	if c.debug {
 		fmt.Printf("STATUS: %d %s\n", resp.StatusCode, resp.Status)
-		fmt.Println("BODY RESPONSE: " + str)
+		fmt.Println("BODY RESPONSE: " + bodyStr)
 	}
-	return &str, nil
+	return &bodyStr, nil
 }
 
 func (c* Consumer) httpExecute(
-	method string, url string, body string, oauthParams *OrderedParams) (*http.Response, os.Error) {
+	method string, urlStr string, body string, oauthParams *OrderedParams) (*http.Response, os.Error) {
 
 	if c.debug {
-		fmt.Println("httpExecute(method: " +  method + ", url: " + url)
+		fmt.Println("httpExecute(method: " +  method + ", url: " + urlStr)
 	}
 
 	var req http.Request
 	req.Method = method
 	req.Header = http.Header{}
 	req.Body = newStringReadCloser(body)
-	parsedurl, err := http.ParseURL(url)
+	parsedurl, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, os.NewError("ParseUrl: " + err.String())
 	}
