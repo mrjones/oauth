@@ -259,7 +259,7 @@ func TestCharacterEscaping(t *testing.T) {
 	m.install(c)
 
 	m.httpClient.ExpectGet(
-		"http://www.mrjon.es/someurl?nonEscapableChars=abcABC123-._~&escapableChars=%20%21%40%23%24%25%5E%26%2A%28%29%2B",
+		"http://www.mrjon.es/someurl?escapableChars=%20%21%40%23%24%25%5E%26%2A%28%29%2B&nonEscapableChars=abcABC123-._~",
 		map[string]string{
 			"oauth_consumer_key":     "consumerkey",
 			"oauth_nonce":            "2",
