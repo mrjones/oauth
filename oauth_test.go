@@ -1,10 +1,10 @@
 package oauth
 
 import (
-	"http"
 	"io"
 	"io/ioutil"
-	"os"
+	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -40,7 +40,7 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 	m.httpClient.ExpectGet(
 		"http://www.mrjon.es/requesttoken",
 		map[string]string{
-			"oauth_callback":         http.URLEscape("http://www.mrjon.es/callback"),
+			"oauth_callback":         url.QueryEscape("http://www.mrjon.es/callback"),
 			"oauth_consumer_key":     "consumerkey",
 			"oauth_nonce":            "2",
 			"oauth_signature":        "MOCK_SIGNATURE",
@@ -50,7 +50,7 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 		},
 		"oauth_token=TOKEN&oauth_token_secret=SECRET")
 
-	token, url, err := c.GetRequestTokenAndUrl("http://www.mrjon.es/callback")
+	token, url_, err := c.GetRequestTokenAndUrl("http://www.mrjon.es/callback")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 	assertEq(t, "TOKEN", token.Token)
 	assertEq(t, "SECRET", token.Secret)
 	assertEq(t, "consumersecret&", m.signer.UsedKey)
-	assertEq(t, "http://www.mrjon.es/authorizetoken?oauth_token=TOKEN", url)
+	assertEq(t, "http://www.mrjon.es/authorizetoken?oauth_token=TOKEN", url_)
 }
 
 func TestSuccessfulTokenAuthorization(t *testing.T) {
@@ -213,7 +213,7 @@ func TestMissingRequestTokenSecret(t *testing.T) {
 	m.httpClient.ExpectGet(
 		"http://www.mrjon.es/requesttoken",
 		map[string]string{
-			"oauth_callback":         http.URLEscape("http://www.mrjon.es/callback"),
+			"oauth_callback":         url.QueryEscape("http://www.mrjon.es/callback"),
 			"oauth_consumer_key":     "consumerkey",
 			"oauth_nonce":            "2",
 			"oauth_signature":        "MOCK_SIGNATURE",
@@ -223,7 +223,7 @@ func TestMissingRequestTokenSecret(t *testing.T) {
 		},
 		"oauth_token=TOKEN") // Missing token_secret
 
-		_, _, err := c.GetRequestTokenAndUrl("http://www.mrjon.es/callback")
+	_, _, err := c.GetRequestTokenAndUrl("http://www.mrjon.es/callback")
 	if err == nil {
 		t.Fatal("Should have raised an error")
 	}
@@ -237,7 +237,7 @@ func TestMissingRequestToken(t *testing.T) {
 	m.httpClient.ExpectGet(
 		"http://www.mrjon.es/requesttoken",
 		map[string]string{
-			"oauth_callback":         http.URLEscape("http://www.mrjon.es/callback"),
+			"oauth_callback":         url.QueryEscape("http://www.mrjon.es/callback"),
 			"oauth_consumer_key":     "consumerkey",
 			"oauth_nonce":            "2",
 			"oauth_signature":        "MOCK_SIGNATURE",
@@ -247,7 +247,7 @@ func TestMissingRequestToken(t *testing.T) {
 		},
 		"oauth_token_secret=SECRET") // Missing token
 
-		_, _, err := c.GetRequestTokenAndUrl("http://www.mrjon.es/callback")
+	_, _, err := c.GetRequestTokenAndUrl("http://www.mrjon.es/callback")
 	if err == nil {
 		t.Fatal("Should have raised an error")
 	}
@@ -276,7 +276,7 @@ func TestCharacterEscaping(t *testing.T) {
 	resp, err := c.Get(
 		"http://www.mrjon.es/someurl", map[string]string{
 			"nonEscapableChars": "abcABC123-._~",
-			"escapableChars": " !@#$%^&*()+",
+			"escapableChars":    " !@#$%^&*()+",
 		}, token)
 
 	if err != nil {
@@ -291,7 +291,6 @@ func TestCharacterEscaping(t *testing.T) {
 	}
 	assertEq(t, "BODY:SUCCESS", string(body))
 }
-
 
 func basicConsumer() *Consumer {
 	return NewConsumer(
@@ -317,10 +316,10 @@ func assertEqM(t *testing.T, expected interface{}, actual interface{}, msg strin
 
 type MockHttpClient struct {
 	// Validate the request
-	expectedUrl          string
+	expectedUrl         string
 	expectedRequestBody string
-	expectedMethod string
-	oAuthChecker *OAuthChecker
+	expectedMethod      string
+	oAuthChecker        *OAuthChecker
 
 	// Return the mocked response
 	responseBody string
@@ -333,7 +332,7 @@ func NewMockHttpClient(t *testing.T) *MockHttpClient {
 	return &MockHttpClient{t: t, statusCode: 200}
 }
 
-func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, os.Error) {
+func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
 	if mock.expectedMethod != "" {
 		assertEqM(mock.t, mock.expectedMethod, req.Method, "Unexpected HTTP method")
 	}
@@ -358,9 +357,9 @@ func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, os.Error) {
 	}
 
 	return &http.Response{
-		StatusCode: mock.statusCode,
-		Body:       NewMockBody(mock.responseBody),
-	},
+			StatusCode: mock.statusCode,
+			Body:       NewMockBody(mock.responseBody),
+		},
 		nil
 }
 
@@ -380,7 +379,6 @@ func (mock *MockHttpClient) ExpectPost(expectedUrl string, expectedRequestBody s
 
 	mock.responseBody = responseBody
 }
-
 
 func (mock *MockHttpClient) ReturnStatusCode(statusCode int, body string) {
 	mock.expectedMethod = "GET"
@@ -403,10 +401,10 @@ func NewOAuthChecker(t *testing.T, headerPairs map[string]string) *OAuthChecker 
 func (o *OAuthChecker) CheckHeader(header string) {
 	assertEqM(o.t, "OAuth ", header[0:6], "OAuth Header did not begin correctly.")
 	paramsStr := header[6:]
-	params := strings.Split(paramsStr, ",", -1)
+	params := strings.Split(paramsStr, ",")
 	paramMap := make(map[string]string)
 	for _, param := range params {
-		keyvalue := strings.Split(param, "=", -1)
+		keyvalue := strings.Split(param, "=")
 		// line looks like: key="value", strip off the quotes
 		// TODO(mrjones): this is pretty hacky
 		value := keyvalue[1]
@@ -431,14 +429,13 @@ func NewMockBody(body string) *MockBody {
 	}
 }
 
-func (*MockBody) Close() os.Error {
+func (*MockBody) Close() error {
 	return nil
 }
 
-func (mock *MockBody) Read(p []byte) (n int, err os.Error) {
+func (mock *MockBody) Read(p []byte) (n int, err error) {
 	return mock.reader.Read(p)
 }
-
 
 type MockClock struct {
 	Time int64
@@ -467,4 +464,4 @@ func (m *MockSigner) Sign(message string, key string) string {
 	return "MOCK_SIGNATURE"
 }
 
-func (m *MockSigner) Debug(enabled bool) { }
+func (m *MockSigner) Debug(enabled bool) {}

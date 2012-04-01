@@ -35,18 +35,19 @@ package oauth
 
 import (
 	"crypto/hmac"
+	"crypto/sha1"
 	"encoding/base64"
+	"errors"
 	"fmt"
-	"http"
 	"io"
 	"io/ioutil"
-	"os"
-	"rand"
+	"math/rand"
+	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
-	"url"
 )
 
 const (
@@ -110,7 +111,7 @@ type ServiceProvider struct {
 // necessary state (RequestTokens and AccessTokens). 
 type Consumer struct {
 	// Some ServiceProviders require extra parameters to be passed for various reasons.
-  // For example Google APIs require you to set a scope= parameter to specify how much
+	// For example Google APIs require you to set a scope= parameter to specify how much
 	// access is being granted.  The proper values for scope= depend on the service:
 	// For more, see: http://code.google.com/apis/accounts/docs/OAuth.html#prepScope
 	AdditionalParams map[string]string
@@ -120,10 +121,10 @@ type Consumer struct {
 	consumerSecret  string
 	serviceProvider ServiceProvider
 
-	debug            bool
+	debug bool
 
 	// Defaults to http.Client{}
-	HttpClient     HttpClient
+	HttpClient HttpClient
 
 	// Private seams for mocking dependencies when testing
 	clock          clock
@@ -139,7 +140,7 @@ type Consumer struct {
 //   see the documentation for ServiceProvider for how to create this.
 //
 func NewConsumer(consumerKey string, consumerSecret string,
-		serviceProvider ServiceProvider) *Consumer {
+	serviceProvider ServiceProvider) *Consumer {
 	clock := &defaultClock{}
 	return &Consumer{
 		consumerKey:     consumerKey,
@@ -178,7 +179,7 @@ func NewConsumer(consumerKey string, consumerSecret string,
 //
 // - err:
 //   Set only if there was an error, nil otherwise.
-func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestToken, url string, err os.Error) {
+func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestToken, url string, err error) {
 	params := c.baseParams(c.consumerKey, c.AdditionalParams)
 	params.Add(CALLBACK_PARAM, callbackUrl)
 
@@ -187,12 +188,12 @@ func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestTok
 
 	resp, err := c.getBody(c.serviceProvider.RequestTokenUrl, params)
 	if err != nil {
-		return nil, "", os.NewError("getBody: " + err.String())
+		return nil, "", errors.New("getBody: " + err.Error())
 	}
 
 	token, secret, err := parseTokenAndSecret(*resp)
 	if err != nil {
-		return nil, "", os.NewError("parseTokenAndSecret: " + err.String())
+		return nil, "", errors.New("parseTokenAndSecret: " + err.Error())
 	}
 
 	url = c.serviceProvider.AuthorizeTokenUrl + "?oauth_token=" + token
@@ -217,7 +218,7 @@ func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestTok
 //
 // - err:
 //   Set only if there was an error, nil otherwise.
-func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string) (atoken *AccessToken, err os.Error) {
+func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string) (atoken *AccessToken, err error) {
 	params := c.baseParams(c.consumerKey, c.AdditionalParams)
 
 	params.Add(VERIFIER_PARAM, verificationCode)
@@ -254,19 +255,19 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 //
 // - err:
 //   Set only if there was an error, nil otherwise.
-func (c *Consumer) Get(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
+func (c *Consumer) Get(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
 	return c.makeAuthorizedRequest("GET", url, "", userParams, token)
 }
 
-func (c *Consumer) Post(url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
+func (c *Consumer) Post(url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
 	return c.makeAuthorizedRequest("POST", url, body, userParams, token)
 }
 
-func (c *Consumer) Delete(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
+func (c *Consumer) Delete(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
 	return c.makeAuthorizedRequest("DELETE", url, "", userParams, token)
 }
 
-func (c *Consumer) Put(url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
+func (c *Consumer) Put(url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
 	return c.makeAuthorizedRequest("PUT", url, body, userParams, token)
 }
 
@@ -275,7 +276,7 @@ func (c *Consumer) Debug(enabled bool) {
 	c.signer.Debug(enabled)
 }
 
-func (c *Consumer) makeAuthorizedRequest(method string, url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err os.Error) {
+func (c *Consumer) makeAuthorizedRequest(method string, url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
 	allParams := c.baseParams(c.consumerKey, c.AdditionalParams)
 	allParams.Add(TOKEN_PARAM, token.Token)
 	authParams := allParams.Clone()
@@ -295,7 +296,7 @@ func (c *Consumer) makeAuthorizedRequest(method string, url string, body string,
 	base_string := c.requestString(method, url, allParams)
 	authParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
 
-	return c.httpExecute(method, url+queryParams, body, authParams)	
+	return c.httpExecute(method, url+queryParams, body, authParams)
 }
 
 type request struct {
@@ -306,7 +307,7 @@ type request struct {
 }
 
 type HttpClient interface {
-	Do(req *http.Request) (resp *http.Response, err os.Error)
+	Do(req *http.Request) (resp *http.Response, err error)
 }
 
 type clock interface {
@@ -325,7 +326,7 @@ type signer interface {
 type defaultClock struct{}
 
 func (*defaultClock) Seconds() int64 {
-	return time.Seconds()
+	return time.Now().Unix()
 }
 
 func newGetRequest(url string, oauthParams *OrderedParams) *request {
@@ -342,23 +343,22 @@ func (c *Consumer) signRequest(req *request, key string) *request {
 	return req
 }
 
-
 func (c *Consumer) makeKey(tokenSecret string) string {
 	return escape(c.consumerSecret) + "&" + escape(tokenSecret)
 }
 
-func parseTokenAndSecret(data string) (string, string, os.Error) {
+func parseTokenAndSecret(data string) (string, string, error) {
 	parts, err := url.ParseQuery(data)
 	if err != nil {
 		return "", "", err
 	}
 
 	if len(parts[TOKEN_PARAM]) < 1 {
-		return "", "", os.NewError("Missing " + TOKEN_PARAM + " in response. " +
+		return "", "", errors.New("Missing " + TOKEN_PARAM + " in response. " +
 			"Full response body: '" + data + "'")
 	}
 	if len(parts[TOKEN_SECRET_PARAM]) < 1 {
-		return "", "", os.NewError("Missing " + TOKEN_SECRET_PARAM + " in response." +
+		return "", "", errors.New("Missing " + TOKEN_SECRET_PARAM + " in response." +
 			"Full response body: '" + data + "'")
 	}
 
@@ -369,8 +369,8 @@ func (c *Consumer) baseParams(consumerKey string, additionalParams map[string]st
 	params := NewOrderedParams()
 	params.Add(VERSION_PARAM, OAUTH_VERSION)
 	params.Add(SIGNATURE_METHOD_PARAM, SIGNATURE_METHOD)
-	params.Add(TIMESTAMP_PARAM, strconv.Itoa64(c.clock.Seconds()))
-	params.Add(NONCE_PARAM, strconv.Itoa64(c.nonceGenerator.Int63()))
+	params.Add(TIMESTAMP_PARAM, strconv.FormatInt(c.clock.Seconds(), 10))
+	params.Add(NONCE_PARAM, strconv.FormatInt(c.nonceGenerator.Int63(), 10))
 	params.Add(CONSUMER_KEY_PARAM, consumerKey)
 	for key, value := range additionalParams {
 		params.Add(key, value)
@@ -383,7 +383,7 @@ type SHA1Signer struct {
 }
 
 func (s *SHA1Signer) Debug(enabled bool) {
-	s.debug = enabled;
+	s.debug = enabled
 }
 
 func (s *SHA1Signer) Sign(message string, key string) string {
@@ -391,16 +391,16 @@ func (s *SHA1Signer) Sign(message string, key string) string {
 		fmt.Println("Signing:" + message)
 		fmt.Println("Key:" + key)
 	}
-	hashfun := hmac.NewSHA1([]byte(key))
+	hashfun := hmac.New(sha1.New, []byte(key))
 	hashfun.Write([]byte(message))
-	rawsignature := hashfun.Sum()
+	rawsignature := hashfun.Sum(nil)
 	base64signature := make([]byte, base64.StdEncoding.EncodedLen(len(rawsignature)))
 	base64.StdEncoding.Encode(base64signature, rawsignature)
 	return string(base64signature)
 }
 
 func escape(s string) string {
-	t := make([]byte, 0, 3 * len(s))
+	t := make([]byte, 0, 3*len(s))
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		if isEscapable(c) {
@@ -432,15 +432,15 @@ func (c *Consumer) requestString(method string, url string, params *OrderedParam
 	return result
 }
 
-func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.Error) {
+func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, error) {
 	resp, err := c.httpExecute("GET", url, "", oauthParams)
 	if err != nil {
-		return nil, os.NewError("httpExecute: " + err.String())
+		return nil, errors.New("httpExecute: " + err.Error())
 	}
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {
-		return nil, os.NewError("ReadAll: " + err.String())
+		return nil, errors.New("ReadAll: " + err.Error())
 	}
 	bodyStr := string(bodyBytes)
 	if c.debug {
@@ -450,11 +450,11 @@ func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, os.
 	return &bodyStr, nil
 }
 
-func (c* Consumer) httpExecute(
-	method string, urlStr string, body string, oauthParams *OrderedParams) (*http.Response, os.Error) {
+func (c *Consumer) httpExecute(
+	method string, urlStr string, body string, oauthParams *OrderedParams) (*http.Response, error) {
 
 	if c.debug {
-		fmt.Println("httpExecute(method: " +  method + ", url: " + urlStr)
+		fmt.Println("httpExecute(method: " + method + ", url: " + urlStr)
 	}
 
 	var req http.Request
@@ -463,10 +463,10 @@ func (c* Consumer) httpExecute(
 	req.Body = newStringReadCloser(body)
 	parsedurl, err := url.Parse(urlStr)
 	if err != nil {
-		return nil, os.NewError("ParseUrl: " + err.String())
+		return nil, errors.New("ParseUrl: " + err.Error())
 	}
 	req.URL = parsedurl
-	
+
 	oauthHdr := "OAuth "
 	for pos, key := range oauthParams.Keys() {
 		if pos > 0 {
@@ -482,21 +482,21 @@ func (c* Consumer) httpExecute(
 	resp, err := c.HttpClient.Do(&req)
 
 	if err != nil {
-		return nil, os.NewError("Do: " + err.String())
+		return nil, errors.New("Do: " + err.Error())
 	}
 
 	debugHeader := ""
 	for k, vals := range req.Header {
-    for _, val := range vals {
-   		debugHeader += "[key: " + k + ", val: " + val +"]"
-    }
-  }
+		for _, val := range vals {
+			debugHeader += "[key: " + k + ", val: " + val + "]"
+		}
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		bytes, _ := ioutil.ReadAll(resp.Body)
 		resp.Body.Close()
 
-		return nil, os.NewError("HTTP response is not 200/OK as expected. Actual response: \n" +
+		return nil, errors.New("HTTP response is not 200/OK as expected. Actual response: \n" +
 			"\tResponse Status: '" + resp.Status + "'\n" +
 			"\tResponse Code: " + strconv.Itoa(resp.StatusCode) + "\n" +
 			"\tResponse Body: " + string(bytes) + "\n" +
@@ -513,7 +513,7 @@ func newStringReadCloser(data string) io.ReadCloser {
 	return stringReadCloser{strings.NewReader(data)}
 }
 
-func (rc stringReadCloser) Close() os.Error {
+func (rc stringReadCloser) Close() error {
 	return nil
 }
 
