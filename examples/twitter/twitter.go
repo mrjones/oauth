@@ -35,8 +35,8 @@ func main() {
 
 	if len(*consumerKey) == 0 || len(*consumerSecret) == 0 {
 		fmt.Println("You must set the --consumerkey and --consumersecret flags.")
-		fmt.Println("---");
-		Usage();
+		fmt.Println("---")
+		Usage()
 		os.Exit(1)
 	}
 
@@ -69,19 +69,19 @@ func main() {
 	}
 
 	response, err := c.Get(
-	  "http://api.twitter.com/1/statuses/home_timeline.json",
-	  map[string]string{"count": "1"},
+		"http://api.twitter.com/1/statuses/home_timeline.json",
+		map[string]string{"count": "1"},
 		accessToken)
 
-// Uncomment this to post a status update
-//	response, err := c.Post(
-//		"http://api.twitter.com/1/statuses/update.json",
-//		"",
-//		map[string]string{
-//			"key": "YgV7Rq8CyfvvfANEbFxZA",
-//			"status": "Test post via the API using Go -- http://golang.org/",
-//		},
-//		accessToken)
+	// Uncomment this to post a status update
+	//	response, err := c.Post(
+	//		"http://api.twitter.com/1/statuses/update.json",
+	//		"",
+	//		map[string]string{
+	//			"key": "YgV7Rq8CyfvvfANEbFxZA",
+	//			"status": "Test post via the API using Go -- http://golang.org/",
+	//		},
+	//		accessToken)
 
 	if err != nil {
 		log.Fatal(err)
