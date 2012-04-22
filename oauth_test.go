@@ -292,6 +292,35 @@ func TestCharacterEscaping(t *testing.T) {
 	assertEq(t, "BODY:SUCCESS", string(body))
 }
 
+
+func TestGetWithNilParams(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ExpectGet(
+		"http://www.mrjon.es/someurl",
+		nil,
+		"BODY:SUCCESS")
+
+	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
+
+	resp, err := c.Get(
+		"http://www.mrjon.es/someurl", nil, token)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "consumersecret&SECRET", m.signer.UsedKey)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "BODY:SUCCESS", string(body))
+}
+
 func basicConsumer() *Consumer {
 	return NewConsumer(
 		"consumerkey",

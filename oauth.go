@@ -276,17 +276,37 @@ func (c *Consumer) Debug(enabled bool) {
 	c.signer.Debug(enabled)
 }
 
+type pair struct {
+	key string
+	value string
+}
+
+type pairs []pair
+
+func (p pairs) Len() int { return len(p) }
+func (p pairs) Less(i, j int) bool { return p[i].key < p[j].key }
+func (p pairs) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+
 func (c *Consumer) makeAuthorizedRequest(method string, url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
 	allParams := c.baseParams(c.consumerKey, c.AdditionalParams)
 	allParams.Add(TOKEN_PARAM, token.Token)
 	authParams := allParams.Clone()
 
+	// Sort parameters alphabetically (primarily for testability / repeatability)
+	paramPairs := make(pairs, len(userParams))
+	i := 0
+	for key, value := range userParams {
+		paramPairs[i] = pair{key: key, value: value}
+		i++
+	}
+	sort.Sort(paramPairs)
+
 	queryParams := ""
 	separator := "?"
 	if userParams != nil {
-		for key, value := range userParams {
-			allParams.Add(key, value)
-			queryParams += separator + escape(key) + "=" + escape(value)
+		for i := range paramPairs {
+			allParams.Add(paramPairs[i].key, paramPairs[i].value)
+			queryParams += separator + escape(paramPairs[i].key) + "=" + escape(paramPairs[i].value)
 			separator = "&"
 		}
 	}
