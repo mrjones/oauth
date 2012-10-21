@@ -149,7 +149,7 @@ func TestSuccessfulAuthorizedPost(t *testing.T) {
 	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
 
 	resp, err := c.Post(
-		"http://www.mrjon.es/someurl", "REQUEST_BODY", map[string]string{"key": "val"}, token)
+		"http://www.mrjon.es/someurl", "", "REQUEST_BODY", map[string]string{"key": "val"}, token)
 
 	if err != nil {
 		t.Fatal(err)
