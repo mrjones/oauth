@@ -39,7 +39,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -108,7 +107,7 @@ type ServiceProvider struct {
 // Consumers are stateless, you can call the various methods (GetRequestTokenAndUrl,
 // AuthorizeToken, and Get) on various different instances of Consumers *as long as
 // they were set up in the same way.* It is up to you, as the caller to persist the
-// necessary state (RequestTokens and AccessTokens). 
+// necessary state (RequestTokens and AccessTokens).
 type Consumer struct {
 	// Some ServiceProviders require extra parameters to be passed for various reasons.
 	// For example Google APIs require you to set a scope= parameter to specify how much
@@ -240,10 +239,10 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 }
 
 // Executes an HTTP Get,, authorized via the AccessToken.
-// - url: 
+// - url:
 //   The base url, without any query params, which is being accessed
 //
-// - userParams: 
+// - userParams:
 //   Any key=value params to be included in the query string
 //
 // - token:
@@ -256,19 +255,31 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 // - err:
 //   Set only if there was an error, nil otherwise.
 func (c *Consumer) Get(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("GET", url, "", userParams, token)
+	return c.makeAuthorizedRequest("GET", url, "", "", userParams, token)
 }
 
-func (c *Consumer) Post(url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("POST", url, body, userParams, token)
+func encodeUserParams(userParams map[string]string) string {
+	data := url.Values{}
+	for k, v := range userParams {
+		data.Add(k, v)
+	}
+	return data.Encode()
+}
+
+func (c *Consumer) PostForm(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+	return c.Post(url, "application/x-www-form-urlencoded", encodeUserParams(userParams), map[string]string{}, token)
+}
+
+func (c *Consumer) Post(url string, contentType string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+	return c.makeAuthorizedRequest("POST", url, contentType, body, userParams, token)
 }
 
 func (c *Consumer) Delete(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("DELETE", url, "", userParams, token)
+	return c.makeAuthorizedRequest("DELETE", url, "", "", userParams, token)
 }
 
 func (c *Consumer) Put(url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("PUT", url, body, userParams, token)
+	return c.makeAuthorizedRequest("PUT", url, "", body, userParams, token)
 }
 
 func (c *Consumer) Debug(enabled bool) {
@@ -287,7 +298,7 @@ func (p pairs) Len() int { return len(p) }
 func (p pairs) Less(i, j int) bool { return p[i].key < p[j].key }
 func (p pairs) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
 
-func (c *Consumer) makeAuthorizedRequest(method string, url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+func (c *Consumer) makeAuthorizedRequest(method string, url string, contentType string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
 	allParams := c.baseParams(c.consumerKey, c.AdditionalParams)
 	allParams.Add(TOKEN_PARAM, token.Token)
 	authParams := allParams.Clone()
@@ -316,7 +327,7 @@ func (c *Consumer) makeAuthorizedRequest(method string, url string, body string,
 	base_string := c.requestString(method, url, allParams)
 	authParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
 
-	return c.httpExecute(method, url+queryParams, body, authParams)
+	return c.httpExecute(method, url+queryParams, contentType, body, authParams)
 }
 
 type request struct {
@@ -453,7 +464,7 @@ func (c *Consumer) requestString(method string, url string, params *OrderedParam
 }
 
 func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, error) {
-	resp, err := c.httpExecute("GET", url, "", oauthParams)
+	resp, err := c.httpExecute("GET", url, "", "", oauthParams)
 	if err != nil {
 		return nil, errors.New("httpExecute: " + err.Error())
 	}
@@ -471,22 +482,20 @@ func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, err
 }
 
 func (c *Consumer) httpExecute(
-	method string, urlStr string, body string, oauthParams *OrderedParams) (*http.Response, error) {
-
-	if c.debug {
-		fmt.Println("httpExecute(method: " + method + ", url: " + urlStr)
-	}
-
-	var req http.Request
-	req.Method = method
-	req.Header = http.Header{}
-	req.Body = newStringReadCloser(body)
-	parsedurl, err := url.Parse(urlStr)
+	method string, urlStr string, contentType string, body string, oauthParams *OrderedParams) (*http.Response, error) {
+	// Create base request.
+	req, err := http.NewRequest(method, urlStr, strings.NewReader(body))
 	if err != nil {
-		return nil, errors.New("ParseUrl: " + err.Error())
+		return nil, errors.New("NewRequest failed: " + err.Error())
 	}
-	req.URL = parsedurl
 
+	// Set contentType is passed.
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+
+	// Set auth header.
+	req.Header = http.Header{}
 	oauthHdr := "OAuth "
 	for pos, key := range oauthParams.Keys() {
 		if pos > 0 {
@@ -494,13 +503,12 @@ func (c *Consumer) httpExecute(
 		}
 		oauthHdr += key + "=\"" + oauthParams.Get(key) + "\""
 	}
-	if c.debug {
-		fmt.Println("AUTH-HDR: " + oauthHdr)
-	}
 	req.Header.Add("Authorization", oauthHdr)
 
-	resp, err := c.HttpClient.Do(&req)
-
+	if c.debug {
+		fmt.Printf("Request: %v", req)
+	}
+	resp, err := c.HttpClient.Do(req)
 	if err != nil {
 		return nil, errors.New("Do: " + err.Error())
 	}
@@ -523,18 +531,6 @@ func (c *Consumer) httpExecute(
 			"\tRequst Headers: " + debugHeader)
 	}
 	return resp, err
-}
-
-type stringReadCloser struct {
-	io.Reader
-}
-
-func newStringReadCloser(data string) io.ReadCloser {
-	return stringReadCloser{strings.NewReader(data)}
-}
-
-func (rc stringReadCloser) Close() error {
-	return nil
 }
 
 //
