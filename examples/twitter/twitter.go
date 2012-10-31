@@ -92,7 +92,7 @@ func main() {
 		response, err = c.PostForm(
 			"http://api.twitter.com/1/statuses/update.json",
 			map[string]string{
-				"key":    "YgV7Rq8CyfvvfANEbFxZA",
+				"key":    *consumerKey,
 				"status": status,
 			},
 			accessToken)
