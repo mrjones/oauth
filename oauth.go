@@ -79,8 +79,8 @@ type AccessToken struct {
 type DataLocation int
 
 const (
-	BODY DataLocation = iota + 1
-	URL
+	LOC_BODY DataLocation = iota + 1
+	LOC_URL
 )
 
 // Information about how to contact the service provider (see #1 above).
@@ -261,7 +261,7 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 // - err:
 //   Set only if there was an error, nil otherwise.
 func (c *Consumer) Get(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("GET", url, URL, "", userParams, token)
+	return c.makeAuthorizedRequest("GET", url, LOC_URL, "", userParams, token)
 }
 
 func encodeUserParams(userParams map[string]string) string {
@@ -278,15 +278,15 @@ func (c *Consumer) PostForm(url string, userParams map[string]string, token *Acc
 }
 
 func (c *Consumer) Post(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("POST", url, BODY, "", userParams, token)
+	return c.makeAuthorizedRequest("POST", url, LOC_BODY, "", userParams, token)
 }
 
 func (c *Consumer) Delete(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("DELETE", url, URL, "", userParams, token)
+	return c.makeAuthorizedRequest("DELETE", url, LOC_URL, "", userParams, token)
 }
 
 func (c *Consumer) Put(url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("PUT", url, URL, body, userParams, token)
+	return c.makeAuthorizedRequest("PUT", url, LOC_URL, body, userParams, token)
 }
 
 func (c *Consumer) Debug(enabled bool) {
@@ -321,7 +321,7 @@ func (c *Consumer) makeAuthorizedRequest(method string, url string, dataLocation
 
 	queryParams := ""
 	separator := "?"
-	if dataLocation == BODY {
+	if dataLocation == LOC_BODY {
 		separator = ""
 	}
 
@@ -329,7 +329,7 @@ func (c *Consumer) makeAuthorizedRequest(method string, url string, dataLocation
 		for i := range paramPairs {
 			allParams.Add(paramPairs[i].key, paramPairs[i].value)
 			thisPair := escape(paramPairs[i].key) + "=" + escape(paramPairs[i].value)
-			if dataLocation == URL {
+			if dataLocation == LOC_URL {
 				queryParams += separator + thisPair
 			} else {
 				body += separator + thisPair
@@ -343,10 +343,10 @@ func (c *Consumer) makeAuthorizedRequest(method string, url string, dataLocation
 	base_string := c.requestString(method, url, allParams)
 	authParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
 
-	fmt.Printf("BODY: %s", body)
-	fmt.Printf("URL: %s", url+queryParams)
-
-	contentType := "application/x-www-form-urlencoded"
+	contentType := ""
+	if dataLocation == LOC_BODY {
+		contentType = "application/x-www-form-urlencoded"
+	}
 	return c.httpExecute(method, url+queryParams, contentType, body, authParams)
 }
 

@@ -32,6 +32,11 @@ func main() {
 		"",
 		"Consumer Secret from Twitter. See: https://dev.twitter.com/apps/new")
 
+	var postUpdate *bool = flag.Bool(
+		"postupdate",
+		false,
+		"If true, post a status update to the timeline")
+
 	flag.Parse()
 
 	if len(*consumerKey) == 0 || len(*consumerSecret) == 0 {
@@ -76,23 +81,24 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// Uncomment this to post a status update
-	status := fmt.Sprintf("Test post via the API using Go (http://golang.org/) at %s", time.Now().String())
-
-	response, err = c.PostForm(
-		"http://api.twitter.com/1/statuses/update.json",
-		map[string]string{
-			"key":    "YgV7Rq8CyfvvfANEbFxZA",
-			"status": status,
-		},
-		accessToken)
-
-	if err != nil {
-		log.Fatal(err)
-	}
 	defer response.Body.Close()
 
 	bits, err := ioutil.ReadAll(response.Body)
 	fmt.Println("The newest item in your home timeline is: " + string(bits))
+
+	if *postUpdate {
+		status := fmt.Sprintf("Test post via the API using Go (http://golang.org/) at %s", time.Now().String())
+
+		response, err = c.PostForm(
+			"http://api.twitter.com/1/statuses/update.json",
+			map[string]string{
+				"key":    "YgV7Rq8CyfvvfANEbFxZA",
+				"status": status,
+			},
+			accessToken)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }
