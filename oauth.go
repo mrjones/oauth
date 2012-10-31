@@ -5,7 +5,7 @@
 // (1) The "Service Provider" (e.g. Google, Twitter, NetFlix) who operates the
 //     service where the data resides.
 // (2) The "End User" who owns that data, and wants to grant access to a third-party.
-// (3) That third-party who wants access to the data (after first be authorized by the
+// (3) That third-party who wants access to the data (after first being authorized by the
 //     user). This third-party is referred to as the "Consumer" in OAuth terminology.
 //
 // This library is designed to help implement the third-party consumer by handling the
@@ -14,7 +14,6 @@
 //
 // Caveats:
 // - Currently only supports HMAC-SHA1 signatures.
-// - Currently only supports HTTP-Get requests.
 // - Currently only supports OAuth 1.0
 //
 // Overview of how to use this library:
@@ -76,6 +75,13 @@ type AccessToken struct {
 	Token  string
 	Secret string
 }
+
+type DataLocation int
+
+const (
+	BODY DataLocation = iota + 1
+	URL
+)
 
 // Information about how to contact the service provider (see #1 above).
 // You usually find all of these URLs by reading the documentation for the service
@@ -255,7 +261,7 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 // - err:
 //   Set only if there was an error, nil otherwise.
 func (c *Consumer) Get(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("GET", url, "", "", userParams, token)
+	return c.makeAuthorizedRequest("GET", url, URL, "", userParams, token)
 }
 
 func encodeUserParams(userParams map[string]string) string {
@@ -266,20 +272,21 @@ func encodeUserParams(userParams map[string]string) string {
 	return data.Encode()
 }
 
+// DEPRECATED: Use Post() instead.
 func (c *Consumer) PostForm(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.Post(url, "application/x-www-form-urlencoded", encodeUserParams(userParams), map[string]string{}, token)
+	return c.Post(url, userParams, token)
 }
 
-func (c *Consumer) Post(url string, contentType string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("POST", url, contentType, body, userParams, token)
+func (c *Consumer) Post(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+	return c.makeAuthorizedRequest("POST", url, BODY, "", userParams, token)
 }
 
 func (c *Consumer) Delete(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("DELETE", url, "", "", userParams, token)
+	return c.makeAuthorizedRequest("DELETE", url, URL, "", userParams, token)
 }
 
 func (c *Consumer) Put(url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("PUT", url, "", body, userParams, token)
+	return c.makeAuthorizedRequest("PUT", url, URL, body, userParams, token)
 }
 
 func (c *Consumer) Debug(enabled bool) {
@@ -288,17 +295,17 @@ func (c *Consumer) Debug(enabled bool) {
 }
 
 type pair struct {
-	key string
+	key   string
 	value string
 }
 
 type pairs []pair
 
-func (p pairs) Len() int { return len(p) }
+func (p pairs) Len() int           { return len(p) }
 func (p pairs) Less(i, j int) bool { return p[i].key < p[j].key }
-func (p pairs) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+func (p pairs) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
-func (c *Consumer) makeAuthorizedRequest(method string, url string, contentType string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+func (c *Consumer) makeAuthorizedRequest(method string, url string, dataLocation DataLocation, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
 	allParams := c.baseParams(c.consumerKey, c.AdditionalParams)
 	allParams.Add(TOKEN_PARAM, token.Token)
 	authParams := allParams.Clone()
@@ -314,10 +321,19 @@ func (c *Consumer) makeAuthorizedRequest(method string, url string, contentType 
 
 	queryParams := ""
 	separator := "?"
+	if dataLocation == BODY {
+		separator = ""
+	}
+
 	if userParams != nil {
 		for i := range paramPairs {
 			allParams.Add(paramPairs[i].key, paramPairs[i].value)
-			queryParams += separator + escape(paramPairs[i].key) + "=" + escape(paramPairs[i].value)
+			thisPair := escape(paramPairs[i].key) + "=" + escape(paramPairs[i].value)
+			if dataLocation == URL {
+				queryParams += separator + thisPair
+			} else {
+				body += separator + thisPair
+			}
 			separator = "&"
 		}
 	}
@@ -327,6 +343,10 @@ func (c *Consumer) makeAuthorizedRequest(method string, url string, contentType 
 	base_string := c.requestString(method, url, allParams)
 	authParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
 
+	fmt.Printf("BODY: %s", body)
+	fmt.Printf("URL: %s", url+queryParams)
+
+	contentType := "application/x-www-form-urlencoded"
 	return c.httpExecute(method, url+queryParams, contentType, body, authParams)
 }
 

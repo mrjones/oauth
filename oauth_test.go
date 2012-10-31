@@ -133,8 +133,8 @@ func TestSuccessfulAuthorizedPost(t *testing.T) {
 	m.install(c)
 
 	m.httpClient.ExpectPost(
-		"http://www.mrjon.es/someurl?key=val",
-		"REQUEST_BODY",
+		"http://www.mrjon.es/someurl",
+		"key=val",
 		map[string]string{
 			"oauth_consumer_key":     "consumerkey",
 			"oauth_nonce":            "2",
@@ -149,7 +149,7 @@ func TestSuccessfulAuthorizedPost(t *testing.T) {
 	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
 
 	resp, err := c.Post(
-		"http://www.mrjon.es/someurl", "", "REQUEST_BODY", map[string]string{"key": "val"}, token)
+		"http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
 
 	if err != nil {
 		t.Fatal(err)
@@ -291,7 +291,6 @@ func TestCharacterEscaping(t *testing.T) {
 	}
 	assertEq(t, "BODY:SUCCESS", string(body))
 }
-
 
 func TestGetWithNilParams(t *testing.T) {
 	c := basicConsumer()

@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"time"
 
 	"github.com/mrjones/oauth"
 )
@@ -72,16 +73,20 @@ func main() {
 		"http://api.twitter.com/1/statuses/home_timeline.json",
 		map[string]string{"count": "1"},
 		accessToken)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Uncomment this to post a status update
-	//	response, err := c.Post(
-	//		"http://api.twitter.com/1/statuses/update.json",
-	//		"",
-	//		map[string]string{
-	//			"key": "YgV7Rq8CyfvvfANEbFxZA",
-	//			"status": "Test post via the API using Go -- http://golang.org/",
-	//		},
-	//		accessToken)
+	status := fmt.Sprintf("Test post via the API using Go (http://golang.org/) at %s", time.Now().String())
+
+	response, err = c.PostForm(
+		"http://api.twitter.com/1/statuses/update.json",
+		map[string]string{
+			"key":    "YgV7Rq8CyfvvfANEbFxZA",
+			"status": status,
+		},
+		accessToken)
 
 	if err != nil {
 		log.Fatal(err)
