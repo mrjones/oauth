@@ -89,10 +89,9 @@ func main() {
 	if *postUpdate {
 		status := fmt.Sprintf("Test post via the API using Go (http://golang.org/) at %s", time.Now().String())
 
-		response, err = c.PostForm(
+		response, err = c.Post(
 			"http://api.twitter.com/1/statuses/update.json",
 			map[string]string{
-				"key":    *consumerKey,
 				"status": status,
 			},
 			accessToken)
