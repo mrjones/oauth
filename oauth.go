@@ -509,11 +509,6 @@ func (c *Consumer) httpExecute(
 		return nil, errors.New("NewRequest failed: " + err.Error())
 	}
 
-	// Set contentType is passed.
-	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
-	}
-
 	// Set auth header.
 	req.Header = http.Header{}
 	oauthHdr := "OAuth "
@@ -524,6 +519,11 @@ func (c *Consumer) httpExecute(
 		oauthHdr += key + "=\"" + oauthParams.Get(key) + "\""
 	}
 	req.Header.Add("Authorization", oauthHdr)
+
+	// Set contentType is passed.
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
 
 	if c.debug {
 		fmt.Printf("Request: %v", req)
