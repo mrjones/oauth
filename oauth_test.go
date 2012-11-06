@@ -365,6 +365,11 @@ func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
 		assertEqM(mock.t, mock.expectedMethod, req.Method, "Unexpected HTTP method")
 	}
 
+	if mock.expectedMethod == "POST" {
+		assertEqM(mock.t, "application/x-www-form-urlencoded", req.Header.Get("Content-Type"),
+			"POSTs should have application/x-www-form-urlencoded Content-Type set")
+	}
+
 	if mock.expectedRequestBody != "" {
 		actualBody, err := ioutil.ReadAll(req.Body)
 		if err != nil {
