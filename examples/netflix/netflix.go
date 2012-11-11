@@ -38,11 +38,14 @@ func main() {
 			AccessTokenUrl:    "http://api-public.netflix.com/oauth/access_token",
 		})
 
+	// Netflix's API isn't standard OAuth, and has some funky things.
+	// In particular, you need to appenda  number of parameters to the user's authorize token url
+	// See #4 here:
+	// http://josephsmarr.com/2008/10/01/using-netflixs-new-api-a-step-by-step-guide/
 	c.StupidNetflixParams = map[string]string{
 		"application_name":   "Undecided",
 		"oauth_callback":     "oob",
 		"oauth_consumer_key": *consumerKey,
-		"oauth_token":        *consumerSecret,
 	}
 
 	c.Debug(true)
