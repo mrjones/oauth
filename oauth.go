@@ -131,6 +131,8 @@ type Consumer struct {
 	// Defaults to http.Client{}
 	HttpClient HttpClient
 
+	StupidNetflixParams map[string]string
+
 	// Private seams for mocking dependencies when testing
 	clock          clock
 	nonceGenerator nonceGenerator
@@ -157,6 +159,7 @@ func NewConsumer(consumerKey string, consumerSecret string,
 		signer:          &SHA1Signer{},
 
 		AdditionalParams: make(map[string]string),
+		StupidNetflixParams: make(map[string]string),
 	}
 }
 
@@ -184,7 +187,7 @@ func NewConsumer(consumerKey string, consumerSecret string,
 //
 // - err:
 //   Set only if there was an error, nil otherwise.
-func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestToken, url string, err error) {
+func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestToken, loginUrl string, err error) {
 	params := c.baseParams(c.consumerKey, c.AdditionalParams)
 	params.Add(CALLBACK_PARAM, callbackUrl)
 
@@ -201,9 +204,15 @@ func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestTok
 		return nil, "", errors.New("parseTokenAndSecret: " + err.Error())
 	}
 
-	url = c.serviceProvider.AuthorizeTokenUrl + "?oauth_token=" + token
+	loginParams := make(url.Values)
+	for k, v := range(c.StupidNetflixParams) {
+		loginParams.Set(k, v)
+	}
+	loginParams.Set("oauth_token", token)
 
-	return &RequestToken{Token: token, Secret: secret}, url, nil
+	loginUrl = c.serviceProvider.AuthorizeTokenUrl + "?" + loginParams.Encode()
+
+	return &RequestToken{Token: token, Secret: secret}, loginUrl, nil
 }
 
 // After the user has authorized you to the service provider, use this method to turn
