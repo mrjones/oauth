@@ -1,5 +1,0 @@
-# Test
-go test *.go
-
-# Build
-go build *.go
