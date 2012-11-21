@@ -546,7 +546,7 @@ func (c *Consumer) httpExecute(
 	if c.debug {
 		fmt.Printf("Request: %v", req)
 	}
-	resp, err := c.HttpClient.Do(req)
+	resp, err := c.HttpClient.DoXXXX(req)
 	if err != nil {
 		return nil, errors.New("Do: " + err.Error())
 	}
