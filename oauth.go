@@ -165,7 +165,7 @@ func NewConsumer(consumerKey string, consumerSecret string,
 		nonceGenerator:  rand.New(rand.NewSource(clock.Seconds())),
 		signer:          &SHA1Signer{},
 
-		AdditionalParams: make(map[string]string),
+		AdditionalParams:                 make(map[string]string),
 		AdditionalAuthorizationUrlParams: make(map[string]string),
 	}
 }
@@ -212,7 +212,7 @@ func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestTok
 	}
 
 	loginParams := make(url.Values)
-	for k, v := range(c.AdditionalAuthorizationUrlParams) {
+	for k, v := range c.AdditionalAuthorizationUrlParams {
 		loginParams.Set(k, v)
 	}
 	loginParams.Set("oauth_token", token)

@@ -35,7 +35,7 @@ func main() {
 
 	flag.Parse()
 
-	if len(*consumerKey) == 0 || len(*consumerSecret) == 0 || len(*appName) == 0{
+	if len(*consumerKey) == 0 || len(*consumerSecret) == 0 || len(*appName) == 0 {
 		fmt.Println("You must set the --consumerkey, --consumersecret and --appname flags.")
 		os.Exit(1)
 	}
@@ -87,7 +87,7 @@ func main() {
 	bits, err := ioutil.ReadAll(response.Body)
 	profileXml := Resource{}
 	xml.Unmarshal(bits, &profileXml)
-	
+
 	if len(profileXml.Link.Href) == 0 {
 		fmt.Println("ERROR: Couldn't parse subscriber-id from: ", string(bits))
 		return

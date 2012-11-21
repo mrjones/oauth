@@ -67,7 +67,7 @@ func TestSpecialNetflixParams(t *testing.T) {
 	m.install(c)
 
 	c.AdditionalAuthorizationUrlParams = map[string]string{
-		"application_name": "UnitTest",
+		"application_name":   "UnitTest",
 		"oauth_consumer_key": "consumerkey",
 	}
 
@@ -100,7 +100,7 @@ func TestSpecialNetflixParams(t *testing.T) {
 	assertEq(t, "UnitTest", parsedUrl.Query().Get("application_name"))
 	assertEq(t, "consumerkey", parsedUrl.Query().Get("oauth_consumer_key"))
 	assertEq(t, "TOKEN", parsedUrl.Query().Get("oauth_token"))
-	
+
 }
 
 func TestSuccessfulTokenAuthorization(t *testing.T) {
