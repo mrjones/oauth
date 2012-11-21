@@ -1,23 +1,28 @@
 OAuth 1.0 Library for Go
 ========================
 
+(If you need an OAuth 2.0 library, check out: http://code.google.com/p/goauth2/)
+
 Developing your own apps, with this library
 -------------------------------------------
 
 * First, install the library
+
     go get github.com/mrjones/oauth
 
 * Then, check out the comments in oauth.go
 
 * Or, have a look at the examples:
 
-** Netflix
-go run examples/netflix/netflix.go --consumerkey <key> --consumersecret <secret> --appname <appname>
+    * Netflix
 
-** Twitter
-go run examples/twitter/twitter.go --consumerkey <key> --consumersecret <secret>    
+        go run examples/netflix/netflix.go --consumerkey <key> --consumersecret <secret> --appname <appname>
 
-** The Google Latitude example is broken, now that Google uses OAuth 2.0
+    * Twitter
+
+        go run examples/twitter/twitter.go --consumerkey <key> --consumersecret <secret>    
+
+    * The Google Latitude example is broken, now that Google uses OAuth 2.0
 
 Contributing to this library
 ----------------------------
