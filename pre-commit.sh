@@ -1,5 +1,5 @@
 #!/bin/bash
-# ln -s pre-commit.sh .git/hooks/pre-commit
+# ln -s $PWD/pre-commit.sh .git/hooks/pre-commit
 go test *.go
 RESULT=$?
 if [[ $RESULT != 0 ]]; then
