@@ -20,7 +20,7 @@ Developing your own apps, with this library
 
     * Twitter
 
-            go run examples/twitter/twitter.go --consumerkey <key> --consumersecret <secret>    
+            go run examples/twitter/twitter.go --consumerkey [key] --consumersecret [secret]    
 
     * The Google Latitude example is broken, now that Google uses OAuth 2.0
 
@@ -28,11 +28,12 @@ Contributing to this library
 ----------------------------
 
 * Please install the pre-commit hook, which will run tests, and go-fmt before committing.
-    ln -s $PWD/pre-commit.sh .git/hooks/pre-commit
+
+        ln -s $PWD/pre-commit.sh .git/hooks/pre-commit
 
 * Running tests and building is as you'd expect:
-    go test *.go
-    go build *.go
+        go test *.go
+        go build *.go
 
 
 
