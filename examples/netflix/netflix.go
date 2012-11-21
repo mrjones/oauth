@@ -2,6 +2,7 @@
 package main
 
 import (
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -84,12 +85,17 @@ func main() {
 	defer response.Body.Close()
 
 	bits, err := ioutil.ReadAll(response.Body)
-	fmt.Println("Your NetFlix profile: " + string(bits))
+	profileXml := Resource{}
+	xml.Unmarshal(bits, &profileXml)
+	
+	if len(profileXml.Link.Href) == 0 {
+		fmt.Println("ERROR: Couldn't parse subscriber-id from: ", string(bits))
+		return
+	}
 
-	// TODO(mrjones): get real subscriberid
-
+	recsUrl := fmt.Sprintf("%s/recommendations", profileXml.Link.Href)
 	response, err = c.Get(
-		"http://api-public.netflix.com/users/T1jnI5Pil972U_d8VjxvgavhX62vj4sLVgKzk5IVzKza4-/recommendations",
+		recsUrl,
 		map[string]string{"max_results": "1", "start_index": "0"},
 		accessToken)
 	if err != nil {
@@ -98,5 +104,13 @@ func main() {
 	defer response.Body.Close()
 
 	bits, err = ioutil.ReadAll(response.Body)
-	fmt.Println("NetFlix recomments: " + string(bits))
+	fmt.Println("NetFlix recommends: " + string(bits))
+}
+
+type Resource struct {
+	Link Link `xml:"link"`
+}
+
+type Link struct {
+	Href string `xml:"href,attr"`
 }
