@@ -1,3 +1,5 @@
+// THIS NO LONGER WORKS!!
+// Latitude is using OAuth 2.0 now.
 package main
 
 import (
