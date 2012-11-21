@@ -21,11 +21,20 @@ func main() {
 		"",
 		"Consumer Key from NetFlix. See: http://developer.netflix.com/apps/mykeys")
 
+	var appName *string = flag.String(
+		"appname",
+		"",
+		"Application name registered with NetFlix.")
+
+	var debug *bool = flag.Bool(
+		"debug",
+		false,
+		"If true, print debugging information")
+
 	flag.Parse()
 
-	if len(*consumerKey) == 0 || len(*consumerSecret) == 0 {
-		fmt.Println("You must set the --consumerkey and --consumersecret flags.")
-		fmt.Println("---")
+	if len(*consumerKey) == 0 || len(*consumerSecret) == 0 || len(*appName) == 0{
+		fmt.Println("You must set the --consumerkey, --consumersecret and --appname flags.")
 		os.Exit(1)
 	}
 
@@ -38,17 +47,14 @@ func main() {
 			AccessTokenUrl:    "http://api-public.netflix.com/oauth/access_token",
 		})
 
-	// Netflix's API isn't standard OAuth, and has some funky things.
-	// In particular, you need to appenda  number of parameters to the user's authorize token url
 	// See #4 here:
 	// http://josephsmarr.com/2008/10/01/using-netflixs-new-api-a-step-by-step-guide/
-	c.StupidNetflixParams = map[string]string{
-		"application_name":   "Undecided",
-		"oauth_callback":     "oob",
+	c.AdditionalRequestTokenParams = map[string]string{
+		"application_name":   *appName,
 		"oauth_consumer_key": *consumerKey,
 	}
 
-	c.Debug(true)
+	c.Debug(*debug)
 
 	requestToken, url, err := c.GetRequestTokenAndUrl("oob")
 	if err != nil {
