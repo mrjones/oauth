@@ -32,6 +32,7 @@ Contributing to this library
         ln -s $PWD/pre-commit.sh .git/hooks/pre-commit
 
 * Running tests and building is as you'd expect:
+
         go test *.go
         go build *.go
 
