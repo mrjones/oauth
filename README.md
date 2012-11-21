@@ -8,7 +8,7 @@ Developing your own apps, with this library
 
 * First, install the library
 
-    go get github.com/mrjones/oauth
+        go get github.com/mrjones/oauth
 
 * Then, check out the comments in oauth.go
 
@@ -16,11 +16,11 @@ Developing your own apps, with this library
 
     * Netflix
 
-        go run examples/netflix/netflix.go --consumerkey <key> --consumersecret <secret> --appname <appname>
+            go run examples/netflix/netflix.go --consumerkey [key] --consumersecret [secret] --appname [appname]
 
     * Twitter
 
-        go run examples/twitter/twitter.go --consumerkey <key> --consumersecret <secret>    
+            go run examples/twitter/twitter.go --consumerkey <key> --consumersecret <secret>    
 
     * The Google Latitude example is broken, now that Google uses OAuth 2.0
 
