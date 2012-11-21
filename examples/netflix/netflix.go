@@ -1,3 +1,4 @@
+// go run examples/netflix/netflix.go --consumerkey <key> --consumersecret <secret> --appname <appname>
 package main
 
 import (
