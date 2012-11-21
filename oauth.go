@@ -127,13 +127,13 @@ type Consumer struct {
 	serviceProvider ServiceProvider
 
 	// Some APIs (e.g. Netflix) aren't quite standard OAuth, and require passing
-	// additional parameters when generating the request token. For most APIs
+	// additional parameters when authorizing the request token. For most APIs
 	// this field can be ignored.  For Netflix, do something like:
-	// 	consumer.AdditionalRequestTokenParams = map[string]string{
+	// 	consumer.AdditionalAuthorizationUrlParams = map[string]string{
 	// 		"application_name":   "YourAppName",
 	// 		"oauth_consumer_key": "YourConsumerKey",
 	// 	}
-	AdditionalRequestTokenParams map[string]string
+	AdditionalAuthorizationUrlParams map[string]string
 
 	debug bool
 
@@ -166,7 +166,7 @@ func NewConsumer(consumerKey string, consumerSecret string,
 		signer:          &SHA1Signer{},
 
 		AdditionalParams: make(map[string]string),
-		AdditionalRequestTokenParams: make(map[string]string),
+		AdditionalAuthorizationUrlParams: make(map[string]string),
 	}
 }
 
@@ -212,7 +212,7 @@ func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestTok
 	}
 
 	loginParams := make(url.Values)
-	for k, v := range(c.AdditionalRequestTokenParams) {
+	for k, v := range(c.AdditionalAuthorizationUrlParams) {
 		loginParams.Set(k, v)
 	}
 	loginParams.Set("oauth_token", token)

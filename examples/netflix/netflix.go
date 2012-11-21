@@ -49,7 +49,7 @@ func main() {
 
 	// See #4 here:
 	// http://josephsmarr.com/2008/10/01/using-netflixs-new-api-a-step-by-step-guide/
-	c.AdditionalRequestTokenParams = map[string]string{
+	c.AdditionalAuthorizationUrlParams = map[string]string{
 		"application_name":   *appName,
 		"oauth_consumer_key": *consumerKey,
 	}

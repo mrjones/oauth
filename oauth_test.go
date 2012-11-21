@@ -61,6 +61,48 @@ func TestSuccessfulTokenRequest(t *testing.T) {
 	assertEq(t, "http://www.mrjon.es/authorizetoken?oauth_token=TOKEN", url_)
 }
 
+func TestSpecialNetflixParams(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	c.AdditionalAuthorizationUrlParams = map[string]string{
+		"application_name": "UnitTest",
+		"oauth_consumer_key": "consumerkey",
+	}
+
+	m.httpClient.ExpectGet(
+		"http://www.mrjon.es/requesttoken",
+		map[string]string{
+			"oauth_callback":         url.QueryEscape("http://www.mrjon.es/callback"),
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_version":          "1.0",
+		},
+		"oauth_token=TOKEN&oauth_token_secret=SECRET")
+
+	token, url_, err := c.GetRequestTokenAndUrl("http://www.mrjon.es/callback")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "TOKEN", token.Token)
+	assertEq(t, "SECRET", token.Secret)
+	assertEq(t, "consumersecret&", m.signer.UsedKey)
+
+	parsedUrl, err := url.Parse(url_)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "UnitTest", parsedUrl.Query().Get("application_name"))
+	assertEq(t, "consumerkey", parsedUrl.Query().Get("oauth_consumer_key"))
+	assertEq(t, "TOKEN", parsedUrl.Query().Get("oauth_token"))
+	
+}
+
 func TestSuccessfulTokenAuthorization(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
