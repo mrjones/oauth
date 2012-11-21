@@ -193,6 +193,8 @@ func TestSuccessfulAuthorizedPost(t *testing.T) {
 	resp, err := c.Post(
 		"http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
 
+	assertEq(t, "7", m.httpClient.lastRequest.Header.Get("Content-Length"))
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -390,6 +392,7 @@ type MockHttpClient struct {
 	expectedRequestBody string
 	expectedMethod      string
 	oAuthChecker        *OAuthChecker
+	lastRequest         *http.Request
 
 	// Return the mocked response
 	responseBody string
@@ -403,6 +406,8 @@ func NewMockHttpClient(t *testing.T) *MockHttpClient {
 }
 
 func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
+	mock.lastRequest = req
+
 	if mock.expectedMethod != "" {
 		assertEqM(mock.t, mock.expectedMethod, req.Method, "Unexpected HTTP method")
 	}

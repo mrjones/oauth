@@ -536,10 +536,12 @@ func (c *Consumer) httpExecute(
 	}
 	req.Header.Add("Authorization", oauthHdr)
 
-	// Set contentType is passed.
+	// Set contentType if passed.
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
+
+	req.Header.Set("Content-Length", strconv.Itoa(len(body)))
 
 	if c.debug {
 		fmt.Printf("Request: %v", req)
