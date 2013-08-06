@@ -558,7 +558,8 @@ func (c *Consumer) httpExecute(
 		}
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	// StatusMultipleChoices is 300, any 2xx response should be treated as success
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		bytes, _ := ioutil.ReadAll(resp.Body)
 		resp.Body.Close()
 
