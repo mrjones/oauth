@@ -561,9 +561,8 @@ func (c *Consumer) httpExecute(
 	// StatusMultipleChoices is 300, any 2xx response should be treated as success
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		bytes, _ := ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
 
-		return nil, errors.New("HTTP response is not 200/OK as expected. Actual response: \n" +
+		return resp, errors.New("HTTP response is not 200/OK as expected. Actual response: \n" +
 			"\tResponse Status: '" + resp.Status + "'\n" +
 			"\tResponse Code: " + strconv.Itoa(resp.StatusCode) + "\n" +
 			"\tResponse Body: " + string(bytes) + "\n" +
