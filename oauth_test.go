@@ -243,10 +243,13 @@ func Test404OnGet(t *testing.T) {
 	m.httpClient.ReturnStatusCode(404, "Not Found")
 
 	atoken := &AccessToken{Token: "ATOKEN", Secret: "ASECRET"}
-	_, err := c.Get("URL", map[string]string{}, atoken)
+	resp, err := c.Get("URL", map[string]string{}, atoken)
 	if err == nil {
 		t.Fatal("Should have raised an error")
 	}
+
+	assertEqM(t, 404, resp.StatusCode, "Response status code should equal the status code from HTTP response")
+
 }
 
 func TestMissingRequestTokenSecret(t *testing.T) {
