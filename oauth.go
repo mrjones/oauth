@@ -461,14 +461,17 @@ func (s *SHA1Signer) Debug(enabled bool) {
 
 func (s *SHA1Signer) Sign(message string, key string) string {
 	if s.debug {
-		fmt.Println("Signing:" + message)
-		fmt.Println("Key:" + key)
+		fmt.Println("Signing:", message)
+		fmt.Println("Key:", key)
 	}
 	hashfun := hmac.New(sha1.New, []byte(key))
 	hashfun.Write([]byte(message))
 	rawsignature := hashfun.Sum(nil)
 	base64signature := make([]byte, base64.StdEncoding.EncodedLen(len(rawsignature)))
 	base64.StdEncoding.Encode(base64signature, rawsignature)
+	if s.debug {
+		fmt.Println("Base64 signature:", string(base64signature))
+	}
 	return string(base64signature)
 }
 
