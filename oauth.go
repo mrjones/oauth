@@ -323,7 +323,13 @@ func (p pairs) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func (c *Consumer) makeAuthorizedRequest(method string, url string, dataLocation DataLocation, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
 	allParams := c.baseParams(c.consumerKey, c.AdditionalParams)
-	allParams.Add(TOKEN_PARAM, token.Token)
+
+	// Do not add the "oauth_token" parameter, if the access token has not been
+	// specified. By omitting this parameter when it is not specified, allows
+	// two-legged OAuth calls.
+	if len(token.Token) > 0 {
+		allParams.Add(TOKEN_PARAM, token.Token)
+	}
 	authParams := allParams.Clone()
 
 	// Sort parameters alphabetically (primarily for testability / repeatability)
@@ -455,14 +461,17 @@ func (s *SHA1Signer) Debug(enabled bool) {
 
 func (s *SHA1Signer) Sign(message string, key string) string {
 	if s.debug {
-		fmt.Println("Signing:" + message)
-		fmt.Println("Key:" + key)
+		fmt.Println("Signing:", message)
+		fmt.Println("Key:", key)
 	}
 	hashfun := hmac.New(sha1.New, []byte(key))
 	hashfun.Write([]byte(message))
 	rawsignature := hashfun.Sum(nil)
 	base64signature := make([]byte, base64.StdEncoding.EncodedLen(len(rawsignature)))
 	base64.StdEncoding.Encode(base64signature, rawsignature)
+	if s.debug {
+		fmt.Println("Base64 signature:", string(base64signature))
+	}
 	return string(base64signature)
 }
 
@@ -544,7 +553,7 @@ func (c *Consumer) httpExecute(
 	req.Header.Set("Content-Length", strconv.Itoa(len(body)))
 
 	if c.debug {
-		fmt.Printf("Request: %v", req)
+		fmt.Printf("Request: %v\n", req)
 	}
 	resp, err := c.HttpClient.Do(req)
 	if err != nil {
