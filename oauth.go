@@ -550,7 +550,7 @@ func (c *Consumer) httpExecute(
 	req.Header.Set("Content-Length", strconv.Itoa(len(body)))
 
 	if c.debug {
-		fmt.Printf("Request: %v", req)
+		fmt.Printf("Request: %v\n", req)
 	}
 	resp, err := c.HttpClient.Do(req)
 	if err != nil {
