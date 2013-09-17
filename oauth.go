@@ -323,7 +323,13 @@ func (p pairs) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func (c *Consumer) makeAuthorizedRequest(method string, url string, dataLocation DataLocation, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
 	allParams := c.baseParams(c.consumerKey, c.AdditionalParams)
-	allParams.Add(TOKEN_PARAM, token.Token)
+
+	// Do not add the "oauth_token" parameter, if the access token has not been
+	// specified. By omitting this parameter when it is not specified, allows
+	// two-legged OAuth calls.
+	if len(token.Token) > 0 {
+		allParams.Add(TOKEN_PARAM, token.Token)
+	}
 	authParams := allParams.Clone()
 
 	// Sort parameters alphabetically (primarily for testability / repeatability)
