@@ -399,7 +399,7 @@ type signer interface {
 type defaultClock struct{}
 
 func (*defaultClock) Seconds() int64 {
-	return time.Now().Unix()
+	return time.Now().UnixNano()
 }
 
 func newGetRequest(url string, oauthParams *OrderedParams) *request {
