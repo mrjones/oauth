@@ -162,7 +162,7 @@ func NewConsumer(consumerKey string, consumerSecret string,
 		serviceProvider: serviceProvider,
 		clock:           clock,
 		HttpClient:      &http.Client{},
-		nonceGenerator:  rand.New(rand.NewSource(clock.Seconds())),
+		nonceGenerator:  rand.New(rand.NewSource(clock.Nanos())),
 		signer:          &SHA1Signer{},
 
 		AdditionalParams:                 make(map[string]string),
@@ -385,6 +385,7 @@ type HttpClient interface {
 
 type clock interface {
 	Seconds() int64
+	Nanos() int64
 }
 
 type nonceGenerator interface {
@@ -399,6 +400,10 @@ type signer interface {
 type defaultClock struct{}
 
 func (*defaultClock) Seconds() int64 {
+	return time.Now().Unix()
+}
+
+func (*defaultClock) Nanos() int64 {
 	return time.Now().UnixNano()
 }
 

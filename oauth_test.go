@@ -528,6 +528,10 @@ func (m *MockClock) Seconds() int64 {
 	return m.Time
 }
 
+func (m *MockClock) Nanos() int64 {
+	return m.Time * 1e9
+}
+
 type MockNonceGenerator struct {
 	Nonce int64
 }
