@@ -57,11 +57,11 @@ func main() {
 func RedirectUserToTwitter(w http.ResponseWriter, r *http.Request) {
 	tokenUrl := fmt.Sprintf("http://%s/maketoken", r.Host)
 	token, requestUrl, err := c.GetRequestTokenAndUrl(tokenUrl)
-	// Make sure to save the token, we'll need it for AuthorizeToken()
-	tokens[token.Token] = token
 	if err != nil {
 		log.Fatal(err)
 	}
+	// Make sure to save the token, we'll need it for AuthorizeToken()
+	tokens[token.Token] = token
 	http.Redirect(w, r, requestUrl, http.StatusTemporaryRedirect)
 }
 
@@ -79,6 +79,7 @@ func GetTwitterToken(w http.ResponseWriter, r *http.Request) {
 		"http://api.twitter.com/1.1/statuses/home_timeline.json",
 		map[string]string{"count": "1"},
 		accessToken)
+
 	if err != nil {
 		log.Fatal(err)
 	}
