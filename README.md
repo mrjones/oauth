@@ -19,8 +19,14 @@ Developing your own apps, with this library
             go run examples/netflix/netflix.go --consumerkey [key] --consumersecret [secret] --appname [appname]
 
     * Twitter
+    
+        Command line:
 
-            go run examples/twitter/twitter.go --consumerkey [key] --consumersecret [secret]    
+            go run examples/twitter/twitter.go --consumerkey [key] --consumersecret [secret]
+            
+        Or, in the browser (using an HTTP server):
+        
+            go run examples/twitterserver/twitterserver.go --consumerkey [key] --consumersecret [secret] --port 8888        
 
     * The Google Latitude example is broken, now that Google uses OAuth 2.0
 
