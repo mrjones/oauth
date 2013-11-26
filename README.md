@@ -1,4 +1,4 @@
-OAuth 1.0 Library for Go
+OAuth 1.0 Library for [Go](http://golang.org)
 ========================
 
 (If you need an OAuth 2.0 library, check out: http://code.google.com/p/goauth2/)
