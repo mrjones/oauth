@@ -7,8 +7,8 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"log"
+	"net/http"
 
 	"github.com/mrjones/oauth"
 )
@@ -38,14 +38,14 @@ func main() {
 
 	c = oauth.NewConsumer(
 		*consumerKey,
-    *consumerSecret,
-    oauth.ServiceProvider{
-      RequestTokenUrl: "http://api.twitter.com/oauth/request_token",
-      AuthorizeTokenUrl: "https://api.twitter.com/oauth/authorize",
-      AccessTokenUrl: "https://api.twitter.com/oauth/access_token",
-    },
-  )
-  c.Debug(true)
+		*consumerSecret,
+		oauth.ServiceProvider{
+			RequestTokenUrl:   "http://api.twitter.com/oauth/request_token",
+			AuthorizeTokenUrl: "https://api.twitter.com/oauth/authorize",
+			AccessTokenUrl:    "https://api.twitter.com/oauth/access_token",
+		},
+	)
+	c.Debug(true)
 
 	http.HandleFunc("/", RedirectUserToTwitter)
 	http.HandleFunc("/maketoken", GetTwitterToken)
@@ -56,24 +56,24 @@ func main() {
 
 func RedirectUserToTwitter(w http.ResponseWriter, r *http.Request) {
 	tokenUrl := fmt.Sprintf("http://%s/maketoken", r.Host)
-  token, requestUrl, err := c.GetRequestTokenAndUrl(tokenUrl)
+	token, requestUrl, err := c.GetRequestTokenAndUrl(tokenUrl)
 	// Make sure to save the token, we'll need it for AuthorizeToken()
 	tokens[token.Token] = token
-  if err != nil {
-    log.Fatal(err)
-  }
-  http.Redirect(w, r, requestUrl, http.StatusTemporaryRedirect)
+	if err != nil {
+		log.Fatal(err)
+	}
+	http.Redirect(w, r, requestUrl, http.StatusTemporaryRedirect)
 }
 
 func GetTwitterToken(w http.ResponseWriter, r *http.Request) {
-  values := r.URL.Query()
-  verificationCode := values.Get("oauth_verifier")
+	values := r.URL.Query()
+	verificationCode := values.Get("oauth_verifier")
 	tokenKey := values.Get("oauth_token")
 
-  accessToken, err := c.AuthorizeToken(tokens[tokenKey], verificationCode)
-  if err != nil {
-    log.Fatal(err)
-  }
+	accessToken, err := c.AuthorizeToken(tokens[tokenKey], verificationCode)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	response, err := c.Get(
 		"http://api.twitter.com/1.1/statuses/home_timeline.json",
@@ -85,5 +85,5 @@ func GetTwitterToken(w http.ResponseWriter, r *http.Request) {
 	defer response.Body.Close()
 
 	bits, err := ioutil.ReadAll(response.Body)
-	fmt.Fprintf(w, "The newest item in your home timeline is: " + string(bits))
+	fmt.Fprintf(w, "The newest item in your home timeline is: "+string(bits))
 }
