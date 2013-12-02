@@ -120,7 +120,7 @@ func TestSuccessfulTokenAuthorization(t *testing.T) {
 			"oauth_verifier":         "VERIFICATION_CODE",
 			"oauth_version":          "1.0",
 		},
-		"oauth_token=ATOKEN&oauth_token_secret=ATOKEN_SECRET")
+		"oauth_token=ATOKEN&oauth_token_secret=ATOKEN_SECRET&oauth_session_handle=SESSION_HANDLE")
 
 	rtoken := &RequestToken{Token: "RTOKEN", Secret: "RSECRET"}
 	atoken, err := c.AuthorizeToken(rtoken, "VERIFICATION_CODE")
@@ -130,6 +130,7 @@ func TestSuccessfulTokenAuthorization(t *testing.T) {
 
 	assertEq(t, "ATOKEN", atoken.Token)
 	assertEq(t, "ATOKEN_SECRET", atoken.Secret)
+	assertEq(t, "SESSION_HANDLE", atoken.AdditionalData["oauth_session_handle"])
 	assertEq(t, "consumersecret&RSECRET", m.signer.UsedKey)
 }
 
