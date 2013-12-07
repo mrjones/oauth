@@ -134,6 +134,40 @@ func TestSuccessfulTokenAuthorization(t *testing.T) {
 	assertEq(t, "consumersecret&RSECRET", m.signer.UsedKey)
 }
 
+func TestSuccessfulTokenRefresh(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ExpectGet(
+		"http://www.mrjon.es/accesstoken",
+		map[string]string{
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_token":            "ATOKEN",
+			"oauth_session_handle":   "SESSION_HANDLE",
+			"oauth_version":          "1.0",
+		},
+		"oauth_token=ATOKEN_REFRESHED&oauth_token_secret=ATOKEN_SECRET_REFRESHED&oauth_session_handle=SESSION_HANDLE")
+
+	additionalData := map[string]string{
+		SESSION_HANDLE_PARAM: "SESSION_HANDLE",
+	}
+	atoken := &AccessToken{Token: "ATOKEN", Secret: "ATOKEN_SECRET", AdditionalData: additionalData}
+	atoken, err := c.RefreshToken(atoken)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "ATOKEN_REFRESHED", atoken.Token)
+	assertEq(t, "ATOKEN_SECRET_REFRESHED", atoken.Secret)
+	assertEq(t, "SESSION_HANDLE", atoken.AdditionalData["oauth_session_handle"])
+	assertEq(t, "consumersecret&ATOKEN_SECRET", m.signer.UsedKey)
+}
+
 func TestSuccessfulAuthorizedGet(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
@@ -236,6 +270,23 @@ func Test404OnAuthorizationRequest(t *testing.T) {
 	}
 }
 
+func Test404OnTokenRefresh(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ReturnStatusCode(404, "Not Found")
+
+	additionalData := map[string]string{
+		SESSION_HANDLE_PARAM: "SESSION",
+	}
+	atoken := &AccessToken{Token: "ATOKEN", Secret: "ASECRET", AdditionalData: additionalData}
+	_, err := c.RefreshToken(atoken)
+	if err == nil {
+		t.Fatal("Should have raised an error")
+	}
+}
+
 func Test404OnGet(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
@@ -296,6 +347,19 @@ func TestMissingRequestToken(t *testing.T) {
 		"oauth_token_secret=SECRET") // Missing token
 
 	_, _, err := c.GetRequestTokenAndUrl("http://www.mrjon.es/callback")
+	if err == nil {
+		t.Fatal("Should have raised an error")
+	}
+}
+
+func TestMissingSessionRefreshToken(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	additionalData := make(map[string]string) // missing SESSION_HANDLE_PARAM
+	atoken := &AccessToken{Token: "ATOKEN", Secret: "SECRET", AdditionalData: additionalData}
+	_, err := c.RefreshToken(atoken)
 	if err == nil {
 		t.Fatal("Should have raised an error")
 	}
