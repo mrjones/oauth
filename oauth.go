@@ -5,8 +5,9 @@
 //      (1) The "Service Provider" (e.g. Google, Twitter, NetFlix) who operates the
 //          service where the data resides.
 //      (2) The "End User" who owns that data, and wants to grant access to a third-party.
-//      (3) That third-party who wants access to the data (after first being authorized by the
-//          user). This third-party is referred to as the "Consumer" in OAuth terminology.
+//      (3) That third-party who wants access to the data (after first being authorized by
+//          the user). This third-party is referred to as the "Consumer" in OAuth
+//          terminology.
 //
 // This library is designed to help implement the third-party consumer by handling the
 // low-level authentication tasks, and allowing for authenticated requests to the
@@ -20,15 +21,16 @@
 //      (1) First create a new Consumer instance with the NewConsumer function
 //      (2) Get a RequestToken, and "authorization url" from GetRequestTokenAndUrl()
 //      (3) Save the RequestToken, you will need it again in step 6.
-//      (4) Redirect the user to the "authorization url" from step 2, where they will authorize
-//          your access to the service provider.
+//      (4) Redirect the user to the "authorization url" from step 2, where they will
+//          authorize your access to the service provider.
 //      (5) Wait. You will be called back on the CallbackUrl that you provide, and you
 //          will recieve a "verification code".
-//      (6) Call AuthorizeToken() with the RequestToken from step 2 and the "verification code"
-//          from step 5.
-//      (7) You will get back an AccessToken.  Save this for as long as you need access to
-//          the user's data, and treat it like a password; it is a secret.
-//      (8) You can now throw away the RequestToken from step 2, it is no longer necessary.
+//      (6) Call AuthorizeToken() with the RequestToken from step 2 and the
+//          "verification code" from step 5.
+//      (7) You will get back an AccessToken.  Save this for as long as you need access
+//          to the user's data, and treat it like a password; it is a secret.
+//      (8) You can now throw away the RequestToken from step 2, it is no longer
+//          necessary.
 //      (9) Call "Get" using the AccessToken from step 7 to access protected resources.
 package oauth
 
@@ -174,25 +176,27 @@ func NewConsumer(consumerKey string, consumerSecret string,
 
 // Kicks off the OAuth authorization process.
 //      - callbackUrl:
-//        Authorizing a token *requires* redirecting to the service provider. This is the URL
-//        which the service provider will redirect the user back to after that authorization
-//        is completed. The service provider will pass back a verification code which is
-//        necessary to complete the rest of the process (in AuthorizeToken).
+//        Authorizing a token *requires* redirecting to the service provider. This is the
+//        URL which the service provider will redirect the user back to after that
+//        authorization is completed. The service provider will pass back a verification
+//        code which is necessary to complete the rest of the process (in AuthorizeToken).
 //        Notes on callbackUrl:
-//          - Some (all?) service providers allow for setting "oob" (for out-of-band) as a callback
-//            url.  If this is set the service provider will present the verification code directly
-//            to the user, and you must provide a place for them to copy-and-paste it into.
-//          - Otherwise, the user will be redirected to callbackUrl in the browser, and will
-//            append a "oauth_verifier=<verifier>" parameter.
+//          - Some (all?) service providers allow for setting "oob" (for out-of-band) as a
+//            callback url.  If this is set the service provider will present the
+//            verification code directly to the user, and you must provide a place for
+//            them to copy-and-paste it into.
+//          - Otherwise, the user will be redirected to callbackUrl in the browser, and
+//            will append a "oauth_verifier=<verifier>" parameter.
 //
 // This function returns:
 //      - rtoken:
-//        A temporary RequestToken, used during the authorization process.  You must save this
-//        since it will be necessary later in the process when calling AuthorizeToken().
+//        A temporary RequestToken, used during the authorization process. You must save
+//        this since it will be necessary later in the process when calling
+//        AuthorizeToken().
 //
 //      - url:
-//        A URL that you should redirect the user to in order that they may authorize you to
-//        the service provider.
+//        A URL that you should redirect the user to in order that they may authorize you
+//        to the service provider.
 //
 //      - err:
 //        Set only if there was an error, nil otherwise.
