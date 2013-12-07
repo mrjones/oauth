@@ -251,6 +251,15 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 }
 
 // Use the service provider to refresh the AccessToken for a given session.
+// Note that this is only supported for service providers that manage an
+// authorization session (e.g. Yahoo). 
+//
+// Most providers do not return the SESSION_HANDLE_PARAM needed to refresh
+// the token.
+//
+// See http://oauth.googlecode.com/svn/spec/ext/session/1.0/drafts/1/spec.html
+// for more information.
+//
 // - accessToken:
 //   The AccessToken returned from AuthorizeToken()
 //
@@ -260,7 +269,8 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 //   revoked by the user or the service provider).
 //
 // - err:
-//   Set only if there was an error, nil otherwise.
+//   Set if accessToken does not contain the SESSION_HANDLE_PARAM needed to 
+//   refresh the token, or if an error occurred when making the request.
 func (c *Consumer) RefreshToken(accessToken *AccessToken) (atoken *AccessToken, err error) {
 	params := make(map[string]string)
 	sessionHandle, ok := accessToken.AdditionalData[SESSION_HANDLE_PARAM]
