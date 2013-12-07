@@ -152,7 +152,8 @@ type Consumer struct {
 
 // Creates a new Consumer instance.
 //      - consumerKey and consumerSecret:
-//        values you should obtain from the ServiceProvider when you register your application.
+//        values you should obtain from the ServiceProvider when you register your
+//        application.
 //
 //      - serviceProvider:
 //        see the documentation for ServiceProvider for how to create this.
