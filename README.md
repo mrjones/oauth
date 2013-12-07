@@ -1,7 +1,7 @@
 OAuth 1.0 Library for [Go](http://golang.org)
 ========================
 
-Documentation for this code package can be found at: http://godoc.org/github.com/mrjones/oauth
+[![GoDoc](http://godoc.org/github.com/mrjones/oauth?status.png)](http://godoc.org/github.com/mrjones/oauth)
 
 (If you need an OAuth 2.0 library, check out: http://code.google.com/p/goauth2/)
 
