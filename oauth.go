@@ -55,6 +55,7 @@ const (
 	CALLBACK_PARAM         = "oauth_callback"
 	CONSUMER_KEY_PARAM     = "oauth_consumer_key"
 	NONCE_PARAM            = "oauth_nonce"
+	SESSION_HANDLE_PARAM   = "oauth_session_handle"
 	SIGNATURE_METHOD_PARAM = "oauth_signature_method"
 	SIGNATURE_PARAM        = "oauth_signature"
 	TIMESTAMP_PARAM        = "oauth_timestamp"
@@ -72,8 +73,9 @@ type RequestToken struct {
 }
 
 type AccessToken struct {
-	Token  string
-	Secret string
+	Token          string
+	Secret         string
+	AdditionalData map[string]string
 }
 
 type DataLocation int
@@ -206,20 +208,20 @@ func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestTok
 		return nil, "", errors.New("getBody: " + err.Error())
 	}
 
-	token, secret, err := parseTokenAndSecret(*resp)
+	requestToken, err := parseRequestToken(*resp)
 	if err != nil {
-		return nil, "", errors.New("parseTokenAndSecret: " + err.Error())
+		return nil, "", errors.New("parseRequestToken: " + err.Error())
 	}
 
 	loginParams := make(url.Values)
 	for k, v := range c.AdditionalAuthorizationUrlParams {
 		loginParams.Set(k, v)
 	}
-	loginParams.Set("oauth_token", token)
+	loginParams.Set("oauth_token", requestToken.Token)
 
 	loginUrl = c.serviceProvider.AuthorizeTokenUrl + "?" + loginParams.Encode()
 
-	return &RequestToken{Token: token, Secret: secret}, loginUrl, nil
+	return requestToken, loginUrl, nil
 }
 
 // After the user has authorized you to the service provider, use this method to turn
@@ -240,24 +242,75 @@ func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestTok
 // - err:
 //   Set only if there was an error, nil otherwise.
 func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string) (atoken *AccessToken, err error) {
-	params := c.baseParams(c.consumerKey, c.AdditionalParams)
+	params := map[string]string{
+		VERIFIER_PARAM: verificationCode,
+		TOKEN_PARAM:    rtoken.Token,
+	}
 
-	params.Add(VERIFIER_PARAM, verificationCode)
-	params.Add(TOKEN_PARAM, rtoken.Token)
+	return c.makeAccessTokenRequest(params, rtoken.Secret)
+}
 
-	req := newGetRequest(c.serviceProvider.AccessTokenUrl, params)
-	c.signRequest(req, c.makeKey(rtoken.Secret))
+// Use the service provider to refresh the AccessToken for a given session.
+// Note that this is only supported for service providers that manage an
+// authorization session (e.g. Yahoo). 
+//
+// Most providers do not return the SESSION_HANDLE_PARAM needed to refresh
+// the token.
+//
+// See http://oauth.googlecode.com/svn/spec/ext/session/1.0/drafts/1/spec.html
+// for more information.
+//
+// - accessToken:
+//   The AccessToken returned from AuthorizeToken()
+//
+// It will return:
+// - atoken:
+//   An AccessToken which can be used to access the user's data (until it is
+//   revoked by the user or the service provider).
+//
+// - err:
+//   Set if accessToken does not contain the SESSION_HANDLE_PARAM needed to 
+//   refresh the token, or if an error occurred when making the request.
+func (c *Consumer) RefreshToken(accessToken *AccessToken) (atoken *AccessToken, err error) {
+	params := make(map[string]string)
+	sessionHandle, ok := accessToken.AdditionalData[SESSION_HANDLE_PARAM]
+	if !ok {
+		return nil, errors.New("Missing " + SESSION_HANDLE_PARAM + " in access token.")
+	}
+	params[SESSION_HANDLE_PARAM] = sessionHandle
+	params[TOKEN_PARAM] = accessToken.Token
 
-	resp, err := c.getBody(c.serviceProvider.AccessTokenUrl, params)
+	return c.makeAccessTokenRequest(params, accessToken.Secret)
+}
+
+// Use the service provider to obtain an AccessToken for a given session
+// - params:
+//   The access token request paramters.
+// - secret:
+//   Secret key to use when signing the access token request.
+//
+// It will return:
+// - atoken
+//   An AccessToken which can be used to access the user's data (until it is
+//   revoked by the user or the service provider).
+//
+// - err:
+//   Set only if there was an error, nil otherwise.
+func (c *Consumer) makeAccessTokenRequest(params map[string]string, secret string) (atoken *AccessToken, err error) {
+	orderedParams := c.baseParams(c.consumerKey, c.AdditionalParams)
+	for key, value := range params {
+		orderedParams.Add(key, value)
+	}
+
+	req := newGetRequest(c.serviceProvider.AccessTokenUrl, orderedParams)
+	c.signRequest(req, c.makeKey(secret))
+
+	resp, err := c.getBody(c.serviceProvider.AccessTokenUrl, orderedParams)
 	if err != nil {
 		return nil, err
 	}
 
-	token, secret, err := parseTokenAndSecret(*resp)
-	if err != nil {
-		return nil, err
-	}
-	return &AccessToken{Token: token, Secret: secret}, nil
+	return parseAccessToken(*resp)
 }
 
 // Executes an HTTP Get,, authorized via the AccessToken.
@@ -425,22 +478,50 @@ func (c *Consumer) makeKey(tokenSecret string) string {
 	return escape(c.consumerSecret) + "&" + escape(tokenSecret)
 }
 
-func parseTokenAndSecret(data string) (string, string, error) {
+// Obtains an AccessToken from the response of a service provider.
+// - data:
+//   The response body.
+func parseAccessToken(data string) (*AccessToken, error) {
 	parts, err := url.ParseQuery(data)
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 
-	if len(parts[TOKEN_PARAM]) < 1 {
-		return "", "", errors.New("Missing " + TOKEN_PARAM + " in response. " +
+	tokenParam := parts[TOKEN_PARAM]
+	parts.Del(TOKEN_PARAM)
+	if len(tokenParam) < 1 {
+		return nil, errors.New("Missing " + TOKEN_PARAM + " in response. " +
 			"Full response body: '" + data + "'")
 	}
-	if len(parts[TOKEN_SECRET_PARAM]) < 1 {
-		return "", "", errors.New("Missing " + TOKEN_SECRET_PARAM + " in response." +
+	tokenSecretParam := parts[TOKEN_SECRET_PARAM]
+	parts.Del(TOKEN_SECRET_PARAM)
+	if len(tokenSecretParam) < 1 {
+		return nil, errors.New("Missing " + TOKEN_SECRET_PARAM + " in response." +
 			"Full response body: '" + data + "'")
 	}
 
-	return parts[TOKEN_PARAM][0], parts[TOKEN_SECRET_PARAM][0], nil
+	additionalData := parseAdditionalData(parts)
+
+	return &AccessToken{tokenParam[0], tokenSecretParam[0], additionalData}, nil
+}
+
+func parseRequestToken(data string) (*RequestToken, error) {
+	parts, err := url.ParseQuery(data)
+	if err != nil {
+		return nil, err
+	}
+
+	tokenParam := parts[TOKEN_PARAM]
+	if len(tokenParam) < 1 {
+		return nil, errors.New("Missing " + TOKEN_PARAM + " in response. " +
+			"Full response body: '" + data + "'")
+	}
+	tokenSecretParam := parts[TOKEN_SECRET_PARAM]
+	if len(tokenSecretParam) < 1 {
+		return nil, errors.New("Missing " + TOKEN_SECRET_PARAM + " in response." +
+			"Full response body: '" + data + "'")
+	}
+	return &RequestToken{tokenParam[0], tokenSecretParam[0]}, nil
 }
 
 func (c *Consumer) baseParams(consumerKey string, additionalParams map[string]string) *OrderedParams {
@@ -452,6 +533,16 @@ func (c *Consumer) baseParams(consumerKey string, additionalParams map[string]st
 	params.Add(CONSUMER_KEY_PARAM, consumerKey)
 	for key, value := range additionalParams {
 		params.Add(key, value)
+	}
+	return params
+}
+
+func parseAdditionalData(parts url.Values) map[string]string {
+	params := make(map[string]string)
+	for key, value := range parts {
+		if len(value) > 0 {
+			params[key] = value[0]
+		}
 	}
 	return params
 }
