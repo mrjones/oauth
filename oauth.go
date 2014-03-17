@@ -145,8 +145,9 @@ type Consumer struct {
 	HttpClient HttpClient
 
 	// Some APIs (e.g. Intuit/Quickbooks) require sending additional headers along with
-	// requests. (like "Accept" to specify the response type as XML or JSON)
-	AdditionalHeaders map[string]string
+	// requests. (like "Accept" to specify the response type as XML or JSON) Note that this
+	// will only *add* headers, not set existing ones.
+	AdditionalHeaders map[string][]string
 
 	// Private seams for mocking dependencies when testing
 	clock          clock
@@ -678,9 +679,11 @@ func (c *Consumer) httpExecute(
 	}
 	req.Header.Add("Authorization", oauthHdr)
 
-	// Set additional custom headers
-	for key, val := range c.AdditionalHeaders {
-		req.Header.Add(key, val)
+	// Add additional custom headers
+	for key, vals := range c.AdditionalHeaders {
+		for _, val := range vals {
+			req.Header.Add(key, val)
+		}
 	}
 
 	// Set contentType if passed.

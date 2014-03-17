@@ -204,6 +204,49 @@ func TestSuccessfulAuthorizedGet(t *testing.T) {
 	assertEq(t, "BODY:SUCCESS", string(body))
 }
 
+func TestSuccessfulAuthorizedGetWithAddlHdrs(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ExpectGetWithHeaders(
+		"http://www.mrjon.es/someurl?key=val",
+		map[string]string{
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_token":            "TOKEN",
+			"oauth_version":          "1.0",
+		},
+		map[string][]string{
+			"Accept": []string{"json"},
+		},
+		"BODY:SUCCESS")
+
+	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
+
+	c.AdditionalHeaders = map[string][]string{
+		"Accept": []string{"json"},
+	}
+
+	resp, err := c.Get(
+		"http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "consumersecret&SECRET", m.signer.UsedKey)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "BODY:SUCCESS", string(body))
+}
+
 func TestSuccessfulAuthorizedPost(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
@@ -459,6 +502,7 @@ type MockHttpClient struct {
 	expectedUrl         string
 	expectedRequestBody string
 	expectedMethod      string
+	expectedHeaders     map[string][]string
 	oAuthChecker        *OAuthChecker
 	lastRequest         *http.Request
 
@@ -504,6 +548,25 @@ func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
 		mock.oAuthChecker.CheckHeader(req.Header.Get("Authorization"))
 	}
 
+	if len(mock.expectedHeaders) > 0 {
+		for hk, hvals := range mock.expectedHeaders {
+
+			for _, hval := range hvals {
+				found := false
+
+				for k, vals := range req.Header {
+					for _, val := range vals {
+						if k == hk && val == hval {
+							found = true
+						}
+					}
+				}
+				if found == false {
+					mock.t.Fatalf("Expected header %q to contain %q but it did not.", hk, hval)
+				}
+			}
+		}
+	}
 	return &http.Response{
 			StatusCode: mock.statusCode,
 			Body:       NewMockBody(mock.responseBody),
@@ -516,6 +579,14 @@ func (mock *MockHttpClient) ExpectGet(expectedUrl string, expectedOAuthPairs map
 	mock.expectedUrl = expectedUrl
 	mock.oAuthChecker = NewOAuthChecker(mock.t, expectedOAuthPairs)
 
+	mock.responseBody = responseBody
+}
+
+func (mock *MockHttpClient) ExpectGetWithHeaders(expectedUrl string, expectedOAuthPairs map[string]string, headers map[string][]string, responseBody string) {
+	mock.expectedMethod = "GET"
+	mock.expectedUrl = expectedUrl
+	mock.expectedHeaders = headers
+	mock.oAuthChecker = NewOAuthChecker(mock.t, expectedOAuthPairs)
 	mock.responseBody = responseBody
 }
 
