@@ -144,6 +144,11 @@ type Consumer struct {
 	// Defaults to http.Client{}, can be overridden (e.g. for testing) as necessary
 	HttpClient HttpClient
 
+	// Some APIs (e.g. Intuit/Quickbooks) require sending additional headers along with
+	// requests. (like "Accept" to specify the response type as XML or JSON) Note that this
+	// will only *add* headers, not set existing ones.
+	AdditionalHeaders map[string][]string
+
 	// Private seams for mocking dependencies when testing
 	clock          clock
 	nonceGenerator nonceGenerator
@@ -257,7 +262,7 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 
 // Use the service provider to refresh the AccessToken for a given session.
 // Note that this is only supported for service providers that manage an
-// authorization session (e.g. Yahoo). 
+// authorization session (e.g. Yahoo).
 //
 // Most providers do not return the SESSION_HANDLE_PARAM needed to refresh
 // the token.
@@ -273,7 +278,7 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 //        revoked by the user or the service provider).
 //
 //      - err:
-//        Set if accessToken does not contain the SESSION_HANDLE_PARAM needed to 
+//        Set if accessToken does not contain the SESSION_HANDLE_PARAM needed to
 //        refresh the token, or if an error occurred when making the request.
 func (c *Consumer) RefreshToken(accessToken *AccessToken) (atoken *AccessToken, err error) {
 	params := make(map[string]string)
@@ -673,6 +678,13 @@ func (c *Consumer) httpExecute(
 		oauthHdr += key + "=\"" + oauthParams.Get(key) + "\""
 	}
 	req.Header.Add("Authorization", oauthHdr)
+
+	// Add additional custom headers
+	for key, vals := range c.AdditionalHeaders {
+		for _, val := range vals {
+			req.Header.Add(key, val)
+		}
+	}
 
 	// Set contentType if passed.
 	if contentType != "" {
