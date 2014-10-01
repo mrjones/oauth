@@ -40,7 +40,7 @@ func main() {
 		*consumerKey,
 		*consumerSecret,
 		oauth.ServiceProvider{
-			RequestTokenUrl:   "http://api.twitter.com/oauth/request_token",
+			RequestTokenUrl:   "https://api.twitter.com/oauth/request_token",
 			AuthorizeTokenUrl: "https://api.twitter.com/oauth/authorize",
 			AccessTokenUrl:    "https://api.twitter.com/oauth/access_token",
 		},
@@ -76,7 +76,7 @@ func GetTwitterToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response, err := c.Get(
-		"http://api.twitter.com/1.1/statuses/home_timeline.json",
+		"https://api.twitter.com/1.1/statuses/home_timeline.json",
 		map[string]string{"count": "1"},
 		accessToken)
 
