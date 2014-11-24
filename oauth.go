@@ -657,7 +657,7 @@ func (e HTTPExecuteError) Error() string {
 		"\tResponse Status: '" + e.Status + "'\n" +
 		"\tResponse Code: " + strconv.Itoa(e.StatusCode) + "\n" +
 		"\tResponse Body: " + string(e.ResponseBodyBytes) + "\n" +
-		"\tRequst Headers: " + e.RequestHeaders
+		"\tRequest Headers: " + e.RequestHeaders
 }
 
 func (c *Consumer) httpExecute(
