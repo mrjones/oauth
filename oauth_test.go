@@ -21,7 +21,9 @@ func newMocks(t *testing.T) *Mocks {
 		httpClient:     NewMockHttpClient(t),
 		clock:          &MockClock{Time: 1},
 		nonceGenerator: &MockNonceGenerator{Nonce: 2},
-		signer:         &MockSigner{},
+		signer: &MockSigner{
+			ConsumerSecret: "consumersecret",
+		},
 	}
 }
 
@@ -677,14 +679,19 @@ func (m *MockNonceGenerator) Int63() int64 {
 }
 
 type MockSigner struct {
-	UsedKey      string
-	SignedString string
+	UsedKey        string
+	SignedString   string
+	ConsumerSecret string
 }
 
-func (m *MockSigner) Sign(message string, key string) string {
-	m.UsedKey = key
+func (m *MockSigner) Sign(message string, tokenSecret string) (string, error) {
+	m.UsedKey = m.ConsumerSecret + "&" + tokenSecret
 	m.SignedString = message
-	return "MOCK_SIGNATURE"
+	return "MOCK_SIGNATURE", nil
 }
 
 func (m *MockSigner) Debug(enabled bool) {}
+
+func (m *MockSigner) SignatureMethod() string {
+	return SIGNATURE_METHOD_HMAC_SHA1
+}

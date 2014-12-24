@@ -14,7 +14,7 @@
 // service provider on behalf of the user.
 //
 // Caveats:
-//      - Currently only supports HMAC-SHA1 signatures.
+//      - Currently only supports HMAC-SHA1 and RSA-SHA1 signatures.
 //      - Currently only supports OAuth 1.0
 //
 // Overview of how to use this library:
@@ -35,11 +35,14 @@
 package oauth
 
 import (
+	"crypto"
 	"crypto/hmac"
+	"crypto/rsa"
 	"crypto/sha1"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -51,8 +54,9 @@ import (
 )
 
 const (
-	OAUTH_VERSION    = "1.0"
-	SIGNATURE_METHOD = "HMAC-SHA1"
+	OAUTH_VERSION              = "1.0"
+	SIGNATURE_METHOD_HMAC_SHA1 = "HMAC-SHA1"
+	SIGNATURE_METHOD_RSA_SHA1  = "RSA-SHA1"
 
 	CALLBACK_PARAM         = "oauth_callback"
 	CONSUMER_KEY_PARAM     = "oauth_consumer_key"
@@ -127,7 +131,6 @@ type Consumer struct {
 
 	// The rest of this class is configured via the NewConsumer function.
 	consumerKey     string
-	consumerSecret  string
 	serviceProvider ServiceProvider
 
 	// Some APIs (e.g. Netflix) aren't quite standard OAuth, and require passing
@@ -155,7 +158,22 @@ type Consumer struct {
 	signer         signer
 }
 
-// Creates a new Consumer instance.
+func newConsumer(consumerKey string,
+	serviceProvider ServiceProvider) *Consumer {
+	clock := &defaultClock{}
+	return &Consumer{
+		consumerKey:     consumerKey,
+		serviceProvider: serviceProvider,
+		clock:           clock,
+		HttpClient:      &http.Client{},
+		nonceGenerator:  rand.New(rand.NewSource(clock.Nanos())),
+
+		AdditionalParams:                 make(map[string]string),
+		AdditionalAuthorizationUrlParams: make(map[string]string),
+	}
+}
+
+// Creates a new Consumer instance, with a HMAC-SHA1 signer
 //      - consumerKey and consumerSecret:
 //        values you should obtain from the ServiceProvider when you register your
 //        application.
@@ -165,19 +183,36 @@ type Consumer struct {
 //
 func NewConsumer(consumerKey string, consumerSecret string,
 	serviceProvider ServiceProvider) *Consumer {
-	clock := &defaultClock{}
-	return &Consumer{
-		consumerKey:     consumerKey,
-		consumerSecret:  consumerSecret,
-		serviceProvider: serviceProvider,
-		clock:           clock,
-		HttpClient:      &http.Client{},
-		nonceGenerator:  rand.New(rand.NewSource(clock.Nanos())),
-		signer:          &SHA1Signer{},
+	consumer := newConsumer(consumerKey, serviceProvider)
 
-		AdditionalParams:                 make(map[string]string),
-		AdditionalAuthorizationUrlParams: make(map[string]string),
+	consumer.signer = &SHA1Signer{
+		consumerSecret: consumerSecret,
 	}
+
+	return consumer
+
+}
+
+// Creates a new Consumer instance, with a RSA-SHA1 signer
+//      - consumerKey:
+//        value you should obtain from the ServiceProvider when you register your
+//        application.
+//
+//      - privateKey:
+//        the private key to use for signatures
+//
+//      - serviceProvider:
+//        see the documentation for ServiceProvider for how to create this.
+//
+func NewRSAConsumer(consumerKey string, privateKey *rsa.PrivateKey,
+	serviceProvider ServiceProvider) *Consumer {
+	consumer := newConsumer(consumerKey, serviceProvider)
+
+	consumer.signer = &RSASigner{
+		privateKey: privateKey,
+	}
+
+	return consumer
 }
 
 // Kicks off the OAuth authorization process.
@@ -211,7 +246,9 @@ func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestTok
 	params.Add(CALLBACK_PARAM, callbackUrl)
 
 	req := newGetRequest(c.serviceProvider.RequestTokenUrl, params)
-	c.signRequest(req, c.makeKey("")) // We don't have a token secret for the key yet
+	if _, err := c.signRequest(req, ""); err != nil { // We don't have a token secret for the key yet
+		return nil, "", err
+	}
 
 	resp, err := c.getBody(c.serviceProvider.RequestTokenUrl, params)
 	if err != nil {
@@ -313,7 +350,9 @@ func (c *Consumer) makeAccessTokenRequest(params map[string]string, secret strin
 	}
 
 	req := newGetRequest(c.serviceProvider.AccessTokenUrl, orderedParams)
-	c.signRequest(req, c.makeKey(secret))
+	if _, err := c.signRequest(req, secret); err != nil {
+		return nil, err
+	}
 
 	resp, err := c.getBody(c.serviceProvider.AccessTokenUrl, orderedParams)
 	if err != nil {
@@ -423,10 +462,14 @@ func (c *Consumer) makeAuthorizedRequest(method string, url string, dataLocation
 		}
 	}
 
-	key := c.makeKey(token.Secret)
-
 	base_string := c.requestString(method, url, allParams)
-	authParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
+
+	signature, err := c.signer.Sign(base_string, token.Secret)
+	if err != nil {
+		return nil, err
+	}
+
+	authParams.Add(SIGNATURE_PARAM, signature)
 
 	contentType := ""
 	if dataLocation == LOC_BODY {
@@ -455,8 +498,13 @@ type nonceGenerator interface {
 	Int63() int64
 }
 
+type key interface {
+	String() string
+}
+
 type signer interface {
-	Sign(message, key string) string
+	Sign(message string, tokenSecret string) (string, error)
+	SignatureMethod() string
 	Debug(enabled bool)
 }
 
@@ -478,14 +526,16 @@ func newGetRequest(url string, oauthParams *OrderedParams) *request {
 	}
 }
 
-func (c *Consumer) signRequest(req *request, key string) *request {
+func (c *Consumer) signRequest(req *request, tokenSecret string) (*request, error) {
 	base_string := c.requestString(req.method, req.url, req.oauthParams)
-	req.oauthParams.Add(SIGNATURE_PARAM, c.signer.Sign(base_string, key))
-	return req
-}
 
-func (c *Consumer) makeKey(tokenSecret string) string {
-	return escape(c.consumerSecret) + "&" + escape(tokenSecret)
+	signature, err := c.signer.Sign(base_string, tokenSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	req.oauthParams.Add(SIGNATURE_PARAM, signature)
+	return req, nil
 }
 
 // Obtains an AccessToken from the response of a service provider.
@@ -544,7 +594,7 @@ func parseRequestToken(data string) (*RequestToken, error) {
 func (c *Consumer) baseParams(consumerKey string, additionalParams map[string]string) *OrderedParams {
 	params := NewOrderedParams()
 	params.Add(VERSION_PARAM, OAUTH_VERSION)
-	params.Add(SIGNATURE_METHOD_PARAM, SIGNATURE_METHOD)
+	params.Add(SIGNATURE_METHOD_PARAM, c.signer.SignatureMethod())
 	params.Add(TIMESTAMP_PARAM, strconv.FormatInt(c.clock.Seconds(), 10))
 	params.Add(NONCE_PARAM, strconv.FormatInt(c.nonceGenerator.Int63(), 10))
 	params.Add(CONSUMER_KEY_PARAM, consumerKey)
@@ -565,14 +615,16 @@ func parseAdditionalData(parts url.Values) map[string]string {
 }
 
 type SHA1Signer struct {
-	debug bool
+	consumerSecret string
+	debug          bool
 }
 
 func (s *SHA1Signer) Debug(enabled bool) {
 	s.debug = enabled
 }
 
-func (s *SHA1Signer) Sign(message string, key string) string {
+func (s *SHA1Signer) Sign(message string, tokenSecret string) (string, error) {
+	key := escape(s.consumerSecret) + "&" + escape(tokenSecret)
 	if s.debug {
 		fmt.Println("Signing:", message)
 		fmt.Println("Key:", key)
@@ -585,7 +637,50 @@ func (s *SHA1Signer) Sign(message string, key string) string {
 	if s.debug {
 		fmt.Println("Base64 signature:", string(base64signature))
 	}
-	return string(base64signature)
+	return string(base64signature), nil
+}
+
+func (s *SHA1Signer) SignatureMethod() string {
+	return SIGNATURE_METHOD_HMAC_SHA1
+}
+
+type RSASigner struct {
+	debug      bool
+	rand       io.Reader
+	privateKey *rsa.PrivateKey
+}
+
+func (s *RSASigner) Debug(enabled bool) {
+	s.debug = enabled
+}
+
+func (s *RSASigner) Sign(message string, tokenSecret string) (string, error) {
+	if s.debug {
+		fmt.Println("Signing:", message)
+	}
+
+	hashFunc := crypto.SHA1
+	h := hashFunc.New()
+	h.Write([]byte(message))
+	digest := h.Sum(nil)
+
+	signature, err := rsa.SignPKCS1v15(s.rand, s.privateKey, hashFunc, digest)
+	if err != nil {
+		return "", nil
+	}
+
+	base64signature := make([]byte, base64.StdEncoding.EncodedLen(len(signature)))
+	base64.StdEncoding.Encode(base64signature, signature)
+
+	if s.debug {
+		fmt.Println("Base64 signature:", string(base64signature))
+	}
+
+	return string(base64signature), nil
+}
+
+func (s *RSASigner) SignatureMethod() string {
+	return SIGNATURE_METHOD_RSA_SHA1
 }
 
 func escape(s string) string {
