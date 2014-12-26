@@ -112,10 +112,21 @@ const (
 //          - RequestTokenUrl:   http://api.netflix.com/oauth/request_token
 //          - AuthroizeTokenUrl: https://api-user.netflix.com/oauth/login
 //          - AccessTokenUrl:    http://api.netflix.com/oauth/access_token
+// Set HttpMethod if the service provider requires a different HTTP method
+// to be used for OAuth token requests
 type ServiceProvider struct {
 	RequestTokenUrl   string
 	AuthorizeTokenUrl string
 	AccessTokenUrl    string
+	HttpMethod        string
+}
+
+func (sp *ServiceProvider) httpMethod() string {
+	if sp.HttpMethod != "" {
+		return sp.HttpMethod
+	}
+
+	return "GET"
 }
 
 // Consumers are stateless, you can call the various methods (GetRequestTokenAndUrl,
@@ -245,12 +256,16 @@ func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestTok
 	params := c.baseParams(c.consumerKey, c.AdditionalParams)
 	params.Add(CALLBACK_PARAM, callbackUrl)
 
-	req := newGetRequest(c.serviceProvider.RequestTokenUrl, params)
+	req := &request{
+		method:      c.serviceProvider.httpMethod(),
+		url:         c.serviceProvider.RequestTokenUrl,
+		oauthParams: params,
+	}
 	if _, err := c.signRequest(req, ""); err != nil { // We don't have a token secret for the key yet
 		return nil, "", err
 	}
 
-	resp, err := c.getBody(c.serviceProvider.RequestTokenUrl, params)
+	resp, err := c.getBody(c.serviceProvider.httpMethod(), c.serviceProvider.RequestTokenUrl, params)
 	if err != nil {
 		return nil, "", errors.New("getBody: " + err.Error())
 	}
@@ -349,12 +364,16 @@ func (c *Consumer) makeAccessTokenRequest(params map[string]string, secret strin
 		orderedParams.Add(key, value)
 	}
 
-	req := newGetRequest(c.serviceProvider.AccessTokenUrl, orderedParams)
+	req := &request{
+		method:      c.serviceProvider.httpMethod(),
+		url:         c.serviceProvider.AccessTokenUrl,
+		oauthParams: orderedParams,
+	}
 	if _, err := c.signRequest(req, secret); err != nil {
 		return nil, err
 	}
 
-	resp, err := c.getBody(c.serviceProvider.AccessTokenUrl, orderedParams)
+	resp, err := c.getBody(c.serviceProvider.httpMethod(), c.serviceProvider.AccessTokenUrl, orderedParams)
 	if err != nil {
 		return nil, err
 	}
@@ -516,14 +535,6 @@ func (*defaultClock) Seconds() int64 {
 
 func (*defaultClock) Nanos() int64 {
 	return time.Now().UnixNano()
-}
-
-func newGetRequest(url string, oauthParams *OrderedParams) *request {
-	return &request{
-		method:      "GET",
-		url:         url,
-		oauthParams: oauthParams,
-	}
 }
 
 func (c *Consumer) signRequest(req *request, tokenSecret string) (*request, error) {
@@ -716,8 +727,8 @@ func (c *Consumer) requestString(method string, url string, params *OrderedParam
 	return result
 }
 
-func (c *Consumer) getBody(url string, oauthParams *OrderedParams) (*string, error) {
-	resp, err := c.httpExecute("GET", url, "", "", oauthParams)
+func (c *Consumer) getBody(method, url string, oauthParams *OrderedParams) (*string, error) {
+	resp, err := c.httpExecute(method, url, "", "", oauthParams)
 	if err != nil {
 		return nil, errors.New("httpExecute: " + err.Error())
 	}
