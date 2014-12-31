@@ -681,14 +681,12 @@ func (s *RSASigner) Sign(message string, tokenSecret string) (string, error) {
 		return "", nil
 	}
 
-	base64signature := make([]byte, base64.StdEncoding.EncodedLen(len(signature)))
-	base64.StdEncoding.Encode(base64signature, signature)
-
+	base64signature := base64.StdEncoding.EncodeToString(signature)
 	if s.debug {
-		fmt.Println("Base64 signature:", string(base64signature))
+		fmt.Println("Base64 signature:", base64signature)
 	}
 
-	return string(base64signature), nil
+	return base64signature, nil
 }
 
 func (s *RSASigner) SignatureMethod() string {
