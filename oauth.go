@@ -483,9 +483,9 @@ func (c *Consumer) makeAuthorizedRequest(method string, url string, dataLocation
 		}
 	}
 
-	base_string := c.requestString(method, url, allParams)
+	baseString := c.requestString(method, url, allParams)
 
-	signature, err := c.signer.Sign(base_string, token.Secret)
+	signature, err := c.signer.Sign(baseString, token.Secret)
 	if err != nil {
 		return nil, err
 	}
@@ -540,9 +540,9 @@ func (*defaultClock) Nanos() int64 {
 }
 
 func (c *Consumer) signRequest(req *request, tokenSecret string) (*request, error) {
-	base_string := c.requestString(req.method, req.url, req.oauthParams)
+	baseString := c.requestString(req.method, req.url, req.oauthParams)
 
-	signature, err := c.signer.Sign(base_string, tokenSecret)
+	signature, err := c.signer.Sign(baseString, tokenSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -644,13 +644,12 @@ func (s *SHA1Signer) Sign(message string, tokenSecret string) (string, error) {
 	}
 	hashfun := hmac.New(sha1.New, []byte(key))
 	hashfun.Write([]byte(message))
-	rawsignature := hashfun.Sum(nil)
-	base64signature := make([]byte, base64.StdEncoding.EncodedLen(len(rawsignature)))
-	base64.StdEncoding.Encode(base64signature, rawsignature)
+	rawSignature := hashfun.Sum(nil)
+	base64signature := base64.StdEncoding.EncodeToString(rawSignature)
 	if s.debug {
-		fmt.Println("Base64 signature:", string(base64signature))
+		fmt.Println("Base64 signature:", base64signature)
 	}
-	return string(base64signature), nil
+	return base64signature, nil
 }
 
 func (s *SHA1Signer) SignatureMethod() string {
