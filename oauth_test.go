@@ -485,7 +485,8 @@ func basicConsumer() *Consumer {
 			RequestTokenUrl:   "http://www.mrjon.es/requesttoken",
 			AuthorizeTokenUrl: "http://www.mrjon.es/authorizetoken",
 			AccessTokenUrl:    "http://www.mrjon.es/accesstoken",
-		})
+		},
+		nil)
 }
 
 func assertEq(t *testing.T, expected interface{}, actual interface{}) {

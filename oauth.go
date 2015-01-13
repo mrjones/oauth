@@ -170,14 +170,16 @@ type Consumer struct {
 	signer         signer
 }
 
-func newConsumer(consumerKey string,
-	serviceProvider ServiceProvider) *Consumer {
+func newConsumer(consumerKey string, serviceProvider ServiceProvider, httpClient *http.Client) *Consumer {
 	clock := &defaultClock{}
+	if httpClient == nil {
+		httpClient = &http.Client{}
+	}
 	return &Consumer{
 		consumerKey:     consumerKey,
 		serviceProvider: serviceProvider,
 		clock:           clock,
-		HttpClient:      &http.Client{},
+		HttpClient:      httpClient,
 		nonceGenerator:  rand.New(rand.NewSource(clock.Nanos())),
 
 		AdditionalParams:                 make(map[string]string),
@@ -194,8 +196,8 @@ func newConsumer(consumerKey string,
 //        see the documentation for ServiceProvider for how to create this.
 //
 func NewConsumer(consumerKey string, consumerSecret string,
-	serviceProvider ServiceProvider) *Consumer {
-	consumer := newConsumer(consumerKey, serviceProvider)
+	serviceProvider ServiceProvider, httpClient *http.Client) *Consumer {
+	consumer := newConsumer(consumerKey, serviceProvider, httpClient)
 
 	consumer.signer = &SHA1Signer{
 		consumerSecret: consumerSecret,
@@ -218,7 +220,7 @@ func NewConsumer(consumerKey string, consumerSecret string,
 //
 func NewRSAConsumer(consumerKey string, privateKey *rsa.PrivateKey,
 	serviceProvider ServiceProvider) *Consumer {
-	consumer := newConsumer(consumerKey, serviceProvider)
+	consumer := newConsumer(consumerKey, serviceProvider, nil)
 
 	consumer.signer = &RSASigner{
 		privateKey: privateKey,
