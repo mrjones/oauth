@@ -170,14 +170,16 @@ type Consumer struct {
 	signer         signer
 }
 
-func newConsumer(consumerKey string,
-	serviceProvider ServiceProvider) *Consumer {
+func newConsumer(consumerKey string, serviceProvider ServiceProvider, httpClient *http.Client) *Consumer {
 	clock := &defaultClock{}
+	if httpClient == nil {
+		httpClient = &http.Client{}
+	}
 	return &Consumer{
 		consumerKey:     consumerKey,
 		serviceProvider: serviceProvider,
 		clock:           clock,
-		HttpClient:      &http.Client{},
+		HttpClient:      httpClient,
 		nonceGenerator:  rand.New(rand.NewSource(clock.Nanos())),
 
 		AdditionalParams:                 make(map[string]string),
@@ -195,14 +197,37 @@ func newConsumer(consumerKey string,
 //
 func NewConsumer(consumerKey string, consumerSecret string,
 	serviceProvider ServiceProvider) *Consumer {
-	consumer := newConsumer(consumerKey, serviceProvider)
+	consumer := newConsumer(consumerKey, serviceProvider, nil)
 
 	consumer.signer = &SHA1Signer{
 		consumerSecret: consumerSecret,
 	}
 
 	return consumer
+}
 
+// Creates a new Consumer instance, with a HMAC-SHA1 signer
+//      - consumerKey and consumerSecret:
+//        values you should obtain from the ServiceProvider when you register your
+//        application.
+//
+//      - serviceProvider:
+//        see the documentation for ServiceProvider for how to create this.
+//
+//		- httpClient:
+//		  Provides a custom implementation of the httpClient used under the hood
+//		  to make the request.  This is especially useful if you want to use
+//		  Google App Engine.
+//
+func NewCustomHttpClientConsumer(consumerKey string, consumerSecret string,
+	serviceProvider ServiceProvider, httpClient *http.Client) *Consumer {
+	consumer := newConsumer(consumerKey, serviceProvider, httpClient)
+
+	consumer.signer = &SHA1Signer{
+		consumerSecret: consumerSecret,
+	}
+
+	return consumer
 }
 
 // Creates a new Consumer instance, with a RSA-SHA1 signer
@@ -218,7 +243,7 @@ func NewConsumer(consumerKey string, consumerSecret string,
 //
 func NewRSAConsumer(consumerKey string, privateKey *rsa.PrivateKey,
 	serviceProvider ServiceProvider) *Consumer {
-	consumer := newConsumer(consumerKey, serviceProvider)
+	consumer := newConsumer(consumerKey, serviceProvider, nil)
 
 	consumer.signer = &RSASigner{
 		privateKey: privateKey,
