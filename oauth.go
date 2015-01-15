@@ -196,6 +196,30 @@ func newConsumer(consumerKey string, serviceProvider ServiceProvider, httpClient
 //        see the documentation for ServiceProvider for how to create this.
 //
 func NewConsumer(consumerKey string, consumerSecret string,
+	serviceProvider ServiceProvider) *Consumer {
+	consumer := newConsumer(consumerKey, serviceProvider, nil)
+
+	consumer.signer = &SHA1Signer{
+		consumerSecret: consumerSecret,
+	}
+
+	return consumer
+}
+
+// Creates a new Consumer instance, with a HMAC-SHA1 signer
+//      - consumerKey and consumerSecret:
+//        values you should obtain from the ServiceProvider when you register your
+//        application.
+//
+//      - serviceProvider:
+//        see the documentation for ServiceProvider for how to create this.
+//
+//		- httpClient:
+//		  Provides a custom implementation of the httpClient used under the hood
+//		  to make the request.  This is especially useful if you want to use
+//		  Google App Engine.
+//
+func NewCustomHttpClientConsumer(consumerKey string, consumerSecret string,
 	serviceProvider ServiceProvider, httpClient *http.Client) *Consumer {
 	consumer := newConsumer(consumerKey, serviceProvider, httpClient)
 
@@ -204,7 +228,6 @@ func NewConsumer(consumerKey string, consumerSecret string,
 	}
 
 	return consumer
-
 }
 
 // Creates a new Consumer instance, with a RSA-SHA1 signer
