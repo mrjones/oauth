@@ -13,8 +13,8 @@
 package main
 
 import (
-	"crypto/x509"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/pem"
 	"flag"
 	"fmt"
@@ -68,7 +68,7 @@ func main() {
 	block, _ := pem.Decode([]byte(privateKeyFileContents))
 	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
-    log.Fatal(err)
+		log.Fatal(err)
 	}
 
 	c := oauth.NewRSAConsumer(
@@ -106,7 +106,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	response, err := c.Get(*jiraUrl + "/jira/rest/api/2/issue/BULK-1", map[string]string{}, accessToken)
+	response, err := c.Get(*jiraUrl+"/jira/rest/api/2/issue/BULK-1", map[string]string{}, accessToken)
 	if err != nil {
 		log.Fatal(err)
 	}
