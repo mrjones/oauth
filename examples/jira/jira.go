@@ -106,7 +106,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	response, err := c.Get(*jiraUrl+"/jira/rest/api/2/issue/BULK-1", map[string]string{}, accessToken)
+	response, err := c.Get(*jiraUrl+"/rest/api/2/issue/BULK-1", map[string]string{}, accessToken)
 	if err != nil {
 		log.Fatal(err)
 	}
