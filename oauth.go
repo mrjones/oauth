@@ -35,6 +35,7 @@
 package oauth
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/hmac"
 	cryptoRand "crypto/rand"
@@ -46,6 +47,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"sort"
@@ -90,6 +92,7 @@ type DataLocation int
 const (
 	LOC_BODY DataLocation = iota + 1
 	LOC_URL
+	LOC_MULTIPART
 )
 
 // Information about how to contact the service provider (see #1 above).
@@ -449,6 +452,10 @@ func (c *Consumer) PostWithBody(url string, body string, userParams map[string]s
 	return c.makeAuthorizedRequest("POST", url, LOC_BODY, body, userParams, token)
 }
 
+func (c *Consumer) PostMultipart(url, multipartName string, multipartData io.Reader, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+	return c.makeAuthorizedRequestReader("POST", url, LOC_MULTIPART, 0, multipartName, multipartData, userParams, token)
+}
+
 func (c *Consumer) Delete(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
 	return c.makeAuthorizedRequest("DELETE", url, LOC_URL, "", userParams, token)
 }
@@ -473,7 +480,7 @@ func (p pairs) Len() int           { return len(p) }
 func (p pairs) Less(i, j int) bool { return p[i].key < p[j].key }
 func (p pairs) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
-func (c *Consumer) makeAuthorizedRequest(method string, url string, dataLocation DataLocation, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+func (c *Consumer) makeAuthorizedRequestReader(method string, url string, dataLocation DataLocation, contentLength int, multipartName string, body io.Reader, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
 	allParams := c.baseParams(c.consumerKey, c.AdditionalParams)
 
 	// Do not add the "oauth_token" parameter, if the access token has not been
@@ -494,19 +501,50 @@ func (c *Consumer) makeAuthorizedRequest(method string, url string, dataLocation
 	sort.Sort(paramPairs)
 
 	queryParams := ""
-	separator := "?"
-	if dataLocation == LOC_BODY {
-		separator = ""
+	separator := ""
+	contentType := ""
+	switch dataLocation {
+	case LOC_URL:
+		separator = "?"
+	case LOC_BODY:
+		contentType = "application/x-www-form-urlencoded"
+	case LOC_MULTIPART:
+		pipeReader, pipeWriter := io.Pipe()
+		writer := multipart.NewWriter(pipeWriter)
+		go func(body io.Reader) {
+			part, err := writer.CreateFormFile(multipartName, "/no/matter")
+			if err != nil {
+				writer.Close()
+				pipeWriter.CloseWithError(err)
+				return
+			}
+			_, err = io.Copy(part, body)
+			if err != nil {
+				writer.Close()
+				pipeWriter.CloseWithError(err)
+				return
+			}
+			writer.Close()
+			pipeWriter.Close()
+		}(body)
+		body = pipeReader
+		contentType = writer.FormDataContentType()
 	}
 
 	if userParams != nil {
 		for i := range paramPairs {
 			allParams.Add(paramPairs[i].key, paramPairs[i].value)
 			thisPair := escape(paramPairs[i].key) + "=" + escape(paramPairs[i].value)
-			if dataLocation == LOC_URL {
+			switch dataLocation {
+			case LOC_URL:
 				queryParams += separator + thisPair
-			} else {
-				body += separator + thisPair
+			case LOC_BODY:
+				var b bytes.Buffer // A Buffer needs no initialization.
+				b.ReadFrom(body)
+				b.WriteString(separator)
+				b.WriteString(thisPair)
+				contentLength += len(separator) + len(thisPair)
+				body = &b
 			}
 			separator = "&"
 		}
@@ -521,11 +559,11 @@ func (c *Consumer) makeAuthorizedRequest(method string, url string, dataLocation
 
 	authParams.Add(SIGNATURE_PARAM, signature)
 
-	contentType := ""
-	if dataLocation == LOC_BODY {
-		contentType = "application/x-www-form-urlencoded"
-	}
-	return c.httpExecute(method, url+queryParams, contentType, body, authParams)
+	return c.httpExecute(method, url+queryParams, contentType, contentLength, body, authParams)
+}
+
+func (c *Consumer) makeAuthorizedRequest(method string, url string, dataLocation DataLocation, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+	return c.makeAuthorizedRequestReader(method, url, dataLocation, len(body), "", ioutil.NopCloser(strings.NewReader(body)), userParams, token)
 }
 
 type request struct {
@@ -756,7 +794,7 @@ func (c *Consumer) requestString(method string, url string, params *OrderedParam
 }
 
 func (c *Consumer) getBody(method, url string, oauthParams *OrderedParams) (*string, error) {
-	resp, err := c.httpExecute(method, url, "", "", oauthParams)
+	resp, err := c.httpExecute(method, url, "", 0, nil, oauthParams)
 	if err != nil {
 		return nil, errors.New("httpExecute: " + err.Error())
 	}
@@ -795,9 +833,9 @@ func (e HTTPExecuteError) Error() string {
 }
 
 func (c *Consumer) httpExecute(
-	method string, urlStr string, contentType string, body string, oauthParams *OrderedParams) (*http.Response, error) {
+	method string, urlStr string, contentType string, contentLength int, body io.Reader, oauthParams *OrderedParams) (*http.Response, error) {
 	// Create base request.
-	req, err := http.NewRequest(method, urlStr, strings.NewReader(body))
+	req, err := http.NewRequest(method, urlStr, body)
 	if err != nil {
 		return nil, errors.New("NewRequest failed: " + err.Error())
 	}
@@ -825,7 +863,10 @@ func (c *Consumer) httpExecute(
 		req.Header.Set("Content-Type", contentType)
 	}
 
-	req.Header.Set("Content-Length", strconv.Itoa(len(body)))
+	// Set contentLength if passed.
+	if contentLength > 0 {
+		req.Header.Set("Content-Length", strconv.Itoa(contentLength))
+	}
 
 	if c.debug {
 		fmt.Printf("Request: %v\n", req)
