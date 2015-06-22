@@ -223,14 +223,14 @@ func TestSuccessfulAuthorizedGetWithAddlHdrs(t *testing.T) {
 			"oauth_version":          "1.0",
 		},
 		map[string][]string{
-			"Accept": []string{"json"},
+			"Accept": {"json"},
 		},
 		"BODY:SUCCESS")
 
 	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
 
 	c.AdditionalHeaders = map[string][]string{
-		"Accept": []string{"json"},
+		"Accept": {"json"},
 	}
 
 	resp, err := c.Get(
