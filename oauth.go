@@ -93,6 +93,7 @@ const (
 	LOC_BODY DataLocation = iota + 1
 	LOC_URL
 	LOC_MULTIPART
+	LOC_JSON
 )
 
 // Information about how to contact the service provider (see #1 above).
@@ -452,6 +453,10 @@ func (c *Consumer) PostWithBody(url string, body string, userParams map[string]s
 	return c.makeAuthorizedRequest("POST", url, LOC_BODY, body, userParams, token)
 }
 
+func (c *Consumer) PostJson(url string, body string, token *AccessToken) (resp *http.Response, err error) {
+	return c.makeAuthorizedRequest("POST", url, LOC_JSON, body, nil, token)
+}
+
 func (c *Consumer) PostMultipart(url, multipartName string, multipartData io.Reader, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
 	return c.makeAuthorizedRequestReader("POST", url, LOC_MULTIPART, 0, multipartName, multipartData, userParams, token)
 }
@@ -508,6 +513,8 @@ func (c *Consumer) makeAuthorizedRequestReader(method string, url string, dataLo
 		separator = "?"
 	case LOC_BODY:
 		contentType = "application/x-www-form-urlencoded"
+	case LOC_JSON:
+		contentType = "application/json"
 	case LOC_MULTIPART:
 		pipeReader, pipeWriter := io.Pipe()
 		writer := multipart.NewWriter(pipeWriter)

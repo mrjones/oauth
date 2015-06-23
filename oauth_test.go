@@ -266,6 +266,9 @@ func TestSuccessfulAuthorizedPost(t *testing.T) {
 			"oauth_token":            "TOKEN",
 			"oauth_version":          "1.0",
 		},
+		map[string][]string{
+			"Content-Type": []string{"application/x-www-form-urlencoded"},
+		},
 		"RESPONSE_BODY:SUCCESS")
 
 	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
@@ -274,6 +277,48 @@ func TestSuccessfulAuthorizedPost(t *testing.T) {
 		"http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
 
 	assertEq(t, "7", m.httpClient.lastRequest.Header.Get("Content-Length"))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "consumersecret&SECRET", m.signer.UsedKey)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "RESPONSE_BODY:SUCCESS", string(body))
+}
+
+func TestSuccessfulAuthorizedJsonPost(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ExpectPost(
+		"http://www.mrjon.es/someurl",
+		`{"key":"value"}`,
+		map[string]string{
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_token":            "TOKEN",
+			"oauth_version":          "1.0",
+		},
+		map[string][]string{
+			"Content-Type": []string{"application/json"},
+		},
+		"RESPONSE_BODY:SUCCESS")
+
+	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
+
+	resp, err := c.PostJson(
+		"http://www.mrjon.es/someurl", `{"key":"value"}`, token)
+
+	assertEq(t, "15", m.httpClient.lastRequest.Header.Get("Content-Length"))
 
 	if err != nil {
 		t.Fatal(err)
@@ -526,11 +571,6 @@ func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
 		assertEqM(mock.t, mock.expectedMethod, req.Method, "Unexpected HTTP method")
 	}
 
-	if mock.expectedMethod == "POST" {
-		assertEqM(mock.t, "application/x-www-form-urlencoded", req.Header.Get("Content-Type"),
-			"POSTs should have application/x-www-form-urlencoded Content-Type set")
-	}
-
 	if mock.expectedRequestBody != "" {
 		actualBody, err := ioutil.ReadAll(req.Body)
 		if err != nil {
@@ -592,10 +632,11 @@ func (mock *MockHttpClient) ExpectGetWithHeaders(expectedUrl string, expectedOAu
 	mock.responseBody = responseBody
 }
 
-func (mock *MockHttpClient) ExpectPost(expectedUrl string, expectedRequestBody string, expectedOAuthPairs map[string]string, responseBody string) {
+func (mock *MockHttpClient) ExpectPost(expectedUrl string, expectedRequestBody string, expectedOAuthPairs map[string]string, expectedHeaders map[string][]string, responseBody string) {
 	mock.expectedMethod = "POST"
 	mock.expectedUrl = expectedUrl
 	mock.expectedRequestBody = expectedRequestBody
+	mock.expectedHeaders = expectedHeaders
 	mock.oAuthChecker = NewOAuthChecker(mock.t, expectedOAuthPairs)
 
 	mock.responseBody = responseBody
