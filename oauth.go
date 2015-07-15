@@ -94,6 +94,7 @@ const (
 	LOC_URL
 	LOC_MULTIPART
 	LOC_JSON
+	LOC_XML
 )
 
 // Information about how to contact the service provider (see #1 above).
@@ -457,6 +458,10 @@ func (c *Consumer) PostJson(url string, body string, token *AccessToken) (resp *
 	return c.makeAuthorizedRequest("POST", url, LOC_JSON, body, nil, token)
 }
 
+func (c *Consumer) PostXML(url string, body string, token *AccessToken) (resp *http.Response, err error) {
+	return c.makeAuthorizedRequest("POST", url, LOC_XML, body, nil, token)
+}
+
 func (c *Consumer) PostMultipart(url, multipartName string, multipartData io.Reader, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
 	return c.makeAuthorizedRequestReader("POST", url, LOC_MULTIPART, 0, multipartName, multipartData, userParams, token)
 }
@@ -515,6 +520,8 @@ func (c *Consumer) makeAuthorizedRequestReader(method string, url string, dataLo
 		contentType = "application/x-www-form-urlencoded"
 	case LOC_JSON:
 		contentType = "application/json"
+	case LOC_XML:
+		contentType = "application/xml"
 	case LOC_MULTIPART:
 		pipeReader, pipeWriter := io.Pipe()
 		writer := multipart.NewWriter(pipeWriter)
