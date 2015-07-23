@@ -41,6 +41,7 @@ import (
 	cryptoRand "crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -135,6 +136,9 @@ func (sp *ServiceProvider) httpMethod() string {
 	return "GET"
 }
 
+// Allow self-signed/insecure certificates
+var AllowSelfSigned bool
+
 // Consumers are stateless, you can call the various methods (GetRequestTokenAndUrl,
 // AuthorizeToken, and Get) on various different instances of Consumers *as long as
 // they were set up in the same way.* It is up to you, as the caller to persist the
@@ -178,7 +182,10 @@ type Consumer struct {
 func newConsumer(consumerKey string, serviceProvider ServiceProvider, httpClient *http.Client) *Consumer {
 	clock := &defaultClock{}
 	if httpClient == nil {
-		httpClient = &http.Client{}
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: AllowSelfSigned},
+		}
+		httpClient = &http.Client{Transport: tr}
 	}
 	return &Consumer{
 		consumerKey:     consumerKey,
@@ -848,6 +855,7 @@ func (e HTTPExecuteError) Error() string {
 
 func (c *Consumer) httpExecute(
 	method string, urlStr string, contentType string, contentLength int, body io.Reader, oauthParams *OrderedParams) (*http.Response, error) {
+
 	// Create base request.
 	req, err := http.NewRequest(method, urlStr, body)
 	if err != nil {
