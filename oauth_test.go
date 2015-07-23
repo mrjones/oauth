@@ -333,6 +333,52 @@ func TestSuccessfulAuthorizedJsonPost(t *testing.T) {
 	assertEq(t, "RESPONSE_BODY:SUCCESS", string(body))
 }
 
+func TestSuccessfulAuthorizedXMLPost(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	x := `<?xml version="1.0" encoding="utf-8"?><main><node>test</node></main>`
+
+	m.httpClient.ExpectPost(
+		"http://www.mrjon.es/someurl",
+		x,
+		map[string]string{
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_token":            "TOKEN",
+			"oauth_version":          "1.0",
+		},
+		map[string][]string{
+			"Content-Type": []string{"application/xml"},
+		},
+		"RESPONSE_BODY:SUCCESS")
+
+	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
+
+	resp, err := c.PostXML(
+		"http://www.mrjon.es/someurl", x, token)
+
+	cl, _ := strconv.Atoi(m.httpClient.lastRequest.Header.Get("Content-Length"))
+
+	assertEq(t, len(x), cl)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "consumersecret&SECRET", m.signer.UsedKey)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "RESPONSE_BODY:SUCCESS", string(body))
+}
+
 func Test404OnTokenRequest(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
