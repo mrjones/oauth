@@ -170,7 +170,48 @@ func TestSuccessfulTokenRefresh(t *testing.T) {
 	assertEq(t, "consumersecret&ATOKEN_SECRET", m.signer.UsedKey)
 }
 
-func TestSuccessfulAuthorizedGet(t *testing.T) {
+func TestSuccessfulAuthorizedGet_NewApi(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ExpectGet(
+		"http://www.mrjon.es/someurl?key=val",
+		map[string]string{
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_token":            "TOKEN",
+			"oauth_version":          "1.0",
+		},
+		"BODY:SUCCESS")
+
+	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
+
+	authedClient, err := c.MakeHttpClient(token)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := authedClient.Get("http://www.mrjon.es/someurl?key=val")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "consumersecret&SECRET", m.signer.UsedKey)
+	assertEq(t, "GET&http%3A%2F%2Fwww.mrjon.es%2Fsomeurl&key%3Dval%26oauth_consumer_key%3Dconsumerkey%26oauth_nonce%3D2%26oauth_signature_method%3DHMAC-SHA1%26oauth_timestamp%3D1%26oauth_token%3DTOKEN%26oauth_version%3D1.0", m.signer.SignedString)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "BODY:SUCCESS", string(body))
+}
+
+func TestSuccessfulAuthorizedGet_OldApi(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
 	m.install(c)
@@ -206,7 +247,55 @@ func TestSuccessfulAuthorizedGet(t *testing.T) {
 	assertEq(t, "BODY:SUCCESS", string(body))
 }
 
-func TestSuccessfulAuthorizedGetWithAddlHdrs(t *testing.T) {
+func TestSuccessfulAuthorizedGetWithAddlHdrs_NewApi(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ExpectGetWithHeaders(
+		"http://www.mrjon.es/someurl?key=val",
+		map[string]string{
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_token":            "TOKEN",
+			"oauth_version":          "1.0",
+		},
+		map[string][]string{
+			"Accept": {"json"},
+		},
+		"BODY:SUCCESS")
+
+	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
+
+	authedClient, err := c.MakeHttpClient(token)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("GET", "http://www.mrjon.es/someurl?key=val", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Accept", "json")
+
+	resp, err := authedClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "consumersecret&SECRET", m.signer.UsedKey)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "BODY:SUCCESS", string(body))
+}
+
+func TestSuccessfulAuthorizedGetWithAddlHdrs_OldApi(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
 	m.install(c)
@@ -249,7 +338,58 @@ func TestSuccessfulAuthorizedGetWithAddlHdrs(t *testing.T) {
 	assertEq(t, "BODY:SUCCESS", string(body))
 }
 
-func TestSuccessfulAuthorizedPost(t *testing.T) {
+func TestSuccessfulAuthorizedPost_NewApi(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ExpectPost(
+		"http://www.mrjon.es/someurl",
+		"key=val",
+		map[string]string{
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_token":            "TOKEN",
+			"oauth_version":          "1.0",
+		},
+		map[string][]string{
+			"Content-Type": []string{"application/x-www-form-urlencoded"},
+		},
+		"RESPONSE_BODY:SUCCESS")
+
+	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
+
+	authedClient, err := c.MakeHttpClient(token)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vals := url.Values{}
+	vals.Add("key", "val")
+	resp, err := authedClient.PostForm("http://www.mrjon.es/someurl", vals)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, int64(7), m.httpClient.lastRequest.ContentLength)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "consumersecret&SECRET", m.signer.UsedKey)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "RESPONSE_BODY:SUCCESS", string(body))
+}
+
+func TestSuccessfulAuthorizedPost_OldApi(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
 	m.install(c)
@@ -276,7 +416,7 @@ func TestSuccessfulAuthorizedPost(t *testing.T) {
 	resp, err := c.Post(
 		"http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
 
-	assertEq(t, "7", m.httpClient.lastRequest.Header.Get("Content-Length"))
+	assertEq(t, int64(7), m.httpClient.lastRequest.ContentLength)
 
 	if err != nil {
 		t.Fatal(err)
@@ -291,7 +431,57 @@ func TestSuccessfulAuthorizedPost(t *testing.T) {
 	assertEq(t, "RESPONSE_BODY:SUCCESS", string(body))
 }
 
-func TestSuccessfulAuthorizedJsonPost(t *testing.T) {
+func TestSuccessfulAuthorizedJsonPost_NewApi(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ExpectPost(
+		"http://www.mrjon.es/someurl",
+		`{"key":"value"}`,
+		map[string]string{
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_token":            "TOKEN",
+			"oauth_version":          "1.0",
+		},
+		map[string][]string{
+			"Content-Type": []string{"application/json"},
+		},
+		"RESPONSE_BODY:SUCCESS")
+
+	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
+
+	authedClient, err := c.MakeHttpClient(token)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("POST", "http://www.mrjon.es/someurl", strings.NewReader(`{"key":"value"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := authedClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "consumersecret&SECRET", m.signer.UsedKey)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "RESPONSE_BODY:SUCCESS", string(body))
+}
+
+func TestSuccessfulAuthorizedJsonPost_OldApi(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
 	m.install(c)
@@ -318,7 +508,7 @@ func TestSuccessfulAuthorizedJsonPost(t *testing.T) {
 	resp, err := c.PostJson(
 		"http://www.mrjon.es/someurl", `{"key":"value"}`, token)
 
-	assertEq(t, "15", m.httpClient.lastRequest.Header.Get("Content-Length"))
+	assertEq(t, int64(15), m.httpClient.lastRequest.ContentLength)
 
 	if err != nil {
 		t.Fatal(err)
@@ -333,7 +523,7 @@ func TestSuccessfulAuthorizedJsonPost(t *testing.T) {
 	assertEq(t, "RESPONSE_BODY:SUCCESS", string(body))
 }
 
-func TestSuccessfulAuthorizedXMLPost(t *testing.T) {
+func TestSuccessfulAuthorizedXMLPost_OldApi(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
 	m.install(c)
@@ -362,9 +552,58 @@ func TestSuccessfulAuthorizedXMLPost(t *testing.T) {
 	resp, err := c.PostXML(
 		"http://www.mrjon.es/someurl", x, token)
 
-	cl, _ := strconv.Atoi(m.httpClient.lastRequest.Header.Get("Content-Length"))
+	assertEq(t, int64(len(x)), m.httpClient.lastRequest.ContentLength)
 
-	assertEq(t, len(x), cl)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "consumersecret&SECRET", m.signer.UsedKey)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "RESPONSE_BODY:SUCCESS", string(body))
+}
+
+func TestSuccessfulAuthorizedMultipartPost_OldApi(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	payload := "A bunch of data"
+
+	/*
+	expectedBody :=
+		"--UNITTESTBOUNDARY\n" +
+		"Content-Disposition: form-data; name=\"multipartname\"; filename=\"/no/matter\n" +
+		"Content-Type: application/octet-stream\n" +
+		"A bunch of data\n" +
+		"\n" +
+		"--UNITTESTBOUNDARY--\n";
+*/
+	m.httpClient.ExpectPost(
+		"http://www.mrjon.es/unittest",
+		"", //expectedBody,
+		map[string]string{
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_token":            "TOKEN",
+			"oauth_version":          "1.0",
+		},
+		map[string][]string{
+			"Content-Type": []string{"multipart/form-data; boundary=UNITTESTBOUNDARY"},
+		},
+		"RESPONSE_BODY:SUCCESS")
+
+	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
+
+	resp, err := c.PostMultipart(
+		"http://www.mrjon.es/unittest", "multipartname", ioutil.NopCloser(strings.NewReader(payload)), map[string]string{}, token)
 
 	if err != nil {
 		t.Fatal(err)
@@ -423,7 +662,32 @@ func Test404OnTokenRefresh(t *testing.T) {
 	}
 }
 
-func Test404OnGet(t *testing.T) {
+func Test404OnGet_NewApi(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ReturnStatusCode(404, "Not Found")
+
+	atoken := &AccessToken{Token: "ATOKEN", Secret: "ASECRET"}
+	authedClient, err := c.MakeHttpClient(atoken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	
+	resp, err := authedClient.Get("http://www.mrjon.es/someurl")
+	if err != nil {
+		t.Fatal("The new API doesn't explicitly return an error in this case")
+	}
+
+	if resp == nil {
+		t.Fatal("Response shouldn't be nil")
+	}
+
+	assertEqM(t, 404, resp.StatusCode, "Response status code should equal the status code from HTTP response")
+}
+
+func Test404OnGet_OldApi(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
 	m.install(c)
@@ -437,7 +701,6 @@ func Test404OnGet(t *testing.T) {
 	}
 
 	assertEqM(t, 404, resp.StatusCode, "Response status code should equal the status code from HTTP response")
-
 }
 
 func TestMissingRequestTokenSecret(t *testing.T) {
@@ -501,13 +764,59 @@ func TestMissingSessionRefreshToken(t *testing.T) {
 	}
 }
 
-func TestCharacterEscaping(t *testing.T) {
+func TestCharacterEscaping_NewApi(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
 	m.install(c)
 
 	m.httpClient.ExpectGet(
-		"http://www.mrjon.es/someurl?escapableChars=%20%21%40%23%24%25%5E%26%2A%28%29%2B&nonEscapableChars=abcABC123-._~",
+		"http://www.mrjon.es/someurl?escapableChars=+%21%40%23%24%25%5E%26%2A%28%29%2B&nonEscapableChars=abcABC123-._~",
+		map[string]string{
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_token":            "TOKEN",
+			"oauth_version":          "1.0",
+		},
+		"BODY:SUCCESS")
+
+	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
+
+	resp, err := c.Get(
+		"http://www.mrjon.es/someurl", map[string]string{
+			"nonEscapableChars": "abcABC123-._~",
+			"escapableChars":    " !@#$%^&*()+",
+		}, token)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "consumersecret&SECRET", m.signer.UsedKey)
+	if !strings.Contains(m.signer.SignedString, "nonEscapableChars%3DabcABC123-._~") {
+		t.Fatalf("Bad string to sign: '%s'", m.signer.SignedString)
+	}
+
+	if !strings.Contains(m.signer.SignedString, "escapableChars%3D%2520%2521%2540%2523%2524%2525%255E%2526%252A%2528%2529%252B") {
+		t.Fatalf("Bad string to sign: '%s'", m.signer.SignedString)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertEq(t, "BODY:SUCCESS", string(body))
+}
+
+func TestCharacterEscaping_OldApi(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ExpectGet(
+		"http://www.mrjon.es/someurl?escapableChars=+%21%40%23%24%25%5E%26%2A%28%29%2B&nonEscapableChars=abcABC123-._~",
 		map[string]string{
 			"oauth_consumer_key":     "consumerkey",
 			"oauth_nonce":            "2",
@@ -540,7 +849,7 @@ func TestCharacterEscaping(t *testing.T) {
 	assertEq(t, "BODY:SUCCESS", string(body))
 }
 
-func TestGetWithNilParams(t *testing.T) {
+func TestGetWithNilParams_OldApi(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)
 	m.install(c)
@@ -650,7 +959,7 @@ func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
 					}
 				}
 				if found == false {
-					mock.t.Fatalf("Expected header %q to contain %q but it did not.", hk, hval)
+					mock.t.Fatalf("Expected header %q to contain %q but it did not. %v", hk, hval, req.Header.Get(hk))
 				}
 			}
 		}
