@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"time"
 
@@ -57,12 +58,12 @@ func main() {
 
 	c.Debug(true)
 
-	requestToken, url, err := c.GetRequestTokenAndUrl("oob")
+	requestToken, u, err := c.GetRequestTokenAndUrl("oob")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println("(1) Go to: " + url)
+	fmt.Println("(1) Go to: " + u)
 	fmt.Println("(2) Grant access, you should get back a verification code.")
 	fmt.Println("(3) Enter that verification code here: ")
 
@@ -74,10 +75,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	response, err := c.Get(
-		"https://api.twitter.com/1.1/statuses/home_timeline.json",
-		map[string]string{"count": "1"},
-		accessToken)
+	client, err := c.MakeHttpClient(accessToken)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	response, err := client.Get(
+		"https://api.twitter.com/1.1/statuses/home_timeline.json?count=1")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -89,15 +93,14 @@ func main() {
 	if *postUpdate {
 		status := fmt.Sprintf("Test post via the API using Go (http://golang.org/) at %s", time.Now().String())
 
-		response, err = c.Post(
+		response, err = client.PostForm(
 			"https://api.twitter.com/1.1/statuses/update.json",
-			map[string]string{
-				"status": status,
-			},
-			accessToken)
+			url.Values{"status": []string{status}})
 
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		log.Printf("%v\n", response)
 	}
 }
