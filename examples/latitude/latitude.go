@@ -56,10 +56,16 @@ func main() {
 		log.Fatal(err)
 	}
 
-	response, err := c.Get(
-		CURRENT_LOCATION_URL,
-		map[string]string{"key": *apiKey},
-		accessToken)
+	client, err := c.MakeHttpClient(accessToken)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	response, err := client.Get(
+		fmt.Sprintf("%s?key=%s", CURRENT_LOCATION_URL, *apiKey))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	defer response.Body.Close()
 
