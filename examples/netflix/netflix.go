@@ -78,10 +78,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	response, err := c.Get(
-		"http://api-public.netflix.com/users/current",
-		map[string]string{},
-		accessToken)
+	client, err := c.MakeHttpClient(accessToken)
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	response, err := client.Get(
+		"http://api-public.netflix.com/users/current")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -96,11 +99,6 @@ func main() {
 		return
 	}
 
-	client, err := c.MakeHttpClient(accessToken)
-	if err != nil {
-		log.Fatal(err)
-	}
-	
 	recsUrl := fmt.Sprintf("%s/recommendations?max_results=1&start_index=0",
 		profileXml.Link.Href)
 	response, err = client.Get(recsUrl)
