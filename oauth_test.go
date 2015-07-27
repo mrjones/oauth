@@ -575,14 +575,14 @@ func TestSuccessfulAuthorizedMultipartPost_OldApi(t *testing.T) {
 	payload := "A bunch of data"
 
 	/*
-	expectedBody :=
-		"--UNITTESTBOUNDARY\n" +
-		"Content-Disposition: form-data; name=\"multipartname\"; filename=\"/no/matter\n" +
-		"Content-Type: application/octet-stream\n" +
-		"A bunch of data\n" +
-		"\n" +
-		"--UNITTESTBOUNDARY--\n";
-*/
+		expectedBody :=
+			"--UNITTESTBOUNDARY\n" +
+			"Content-Disposition: form-data; name=\"multipartname\"; filename=\"/no/matter\n" +
+			"Content-Type: application/octet-stream\n" +
+			"A bunch of data\n" +
+			"\n" +
+			"--UNITTESTBOUNDARY--\n";
+	*/
 	m.httpClient.ExpectPost(
 		"http://www.mrjon.es/unittest",
 		"", //expectedBody,
@@ -674,7 +674,7 @@ func Test404OnGet_NewApi(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	resp, err := authedClient.Get("http://www.mrjon.es/someurl")
 	if err != nil {
 		t.Fatal("The new API doesn't explicitly return an error in this case")
