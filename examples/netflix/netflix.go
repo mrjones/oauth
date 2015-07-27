@@ -1,3 +1,6 @@
+// NOTE: Netflix shut down its API in 2014.
+//       This code no longer works.
+//
 // go run examples/netflix/netflix.go --consumerkey <key> --consumersecret <secret> --appname <appname>
 package main
 
@@ -93,11 +96,14 @@ func main() {
 		return
 	}
 
-	recsUrl := fmt.Sprintf("%s/recommendations", profileXml.Link.Href)
-	response, err = c.Get(
-		recsUrl,
-		map[string]string{"max_results": "1", "start_index": "0"},
-		accessToken)
+	client, err := c.MakeHttpClient(accessToken)
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	recsUrl := fmt.Sprintf("%s/recommendations?max_results=1&start_index=0",
+		profileXml.Link.Href)
+	response, err = client.Get(recsUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
