@@ -75,11 +75,13 @@ func GetTwitterToken(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
-	response, err := c.Get(
-		"https://api.twitter.com/1.1/statuses/home_timeline.json",
-		map[string]string{"count": "1"},
-		accessToken)
+	client, err := c.MakeHttpClient(accessToken)
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	response, err := client.Get(
+		"https://api.twitter.com/1.1/statuses/home_timeline.json?count=1")
 	if err != nil {
 		log.Fatal(err)
 	}
