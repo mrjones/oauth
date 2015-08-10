@@ -669,6 +669,7 @@ func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, er
 	if userRequest.Header.Get("Content-Type") !=
 		"application/x-www-form-urlencoded" {
 		// Most of the time we get parameters from the query string:
+		userRequest.URL.RawQuery = strings.Replace(userRequest.URL.RawQuery, ";", "%3B", -1)
 		for k, vs := range(userRequest.URL.Query()) {
 			if len(vs) != 1 {
 				return nil, fmt.Errorf("Must have exactly one value per param")
