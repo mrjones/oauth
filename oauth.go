@@ -553,6 +553,9 @@ func (c *Consumer) makeAuthorizedRequestReader(method string, urlString string, 
 
 	if dataLocation != LOC_BODY {
 		request.URL.RawQuery = vals.Encode()
+		request.URL.RawQuery = strings.Replace(
+			request.URL.RawQuery, ";", "%3B", -1)
+
 	} else {
 		// TODO(mrjones): validate that we're not overrideing an exising body?
 		request.Body = ioutil.NopCloser(strings.NewReader(vals.Encode()))
