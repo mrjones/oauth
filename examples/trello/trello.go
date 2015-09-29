@@ -63,7 +63,7 @@ func main() {
 
 	c.Debug(true)
 
-	requestToken, u, err := c.GetRequestTokenAndUrl("oob")
+	requestToken, u, err := c.GetRequestTokenAndUrl("")
 	if err != nil {
 		log.Fatal(err)
 	}

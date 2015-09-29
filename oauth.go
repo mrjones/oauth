@@ -287,7 +287,9 @@ func NewRSAConsumer(consumerKey string, privateKey *rsa.PrivateKey,
 //        Set only if there was an error, nil otherwise.
 func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestToken, loginUrl string, err error) {
 	params := c.baseParams(c.consumerKey, c.AdditionalParams)
-	params.Add(CALLBACK_PARAM, callbackUrl)
+	if callbackUrl != "" {
+		params.Add(CALLBACK_PARAM, callbackUrl)
+	}
 
 	req := &request{
 		method:      c.serviceProvider.httpMethod(),
