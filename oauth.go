@@ -1194,6 +1194,7 @@ type oauthBufferReader struct {
 // So that it implements the io.ReadCloser interface
 func (m oauthBufferReader) Close() error { return nil }
 
+// Provider provides methods for a 2-legged Oauth1 provider
 type Provider struct {
 	SecretGetter func(string) (string, error)
 
@@ -1201,6 +1202,8 @@ type Provider struct {
 	clock clock
 }
 
+// NewProvider takes a function to get the consumer secret from a datastore.
+// Returns a Provider
 func NewProvider(secretGetter func(string) (string, error)) *Provider {
 	provider := &Provider{
 		secretGetter,
@@ -1221,20 +1224,22 @@ func makeURLAbs(url *url.URL, request *http.Request) {
 	}
 }
 
-func (provider *Provider) IsAuthorized(request *http.Request) (bool, error) {
+// IsAuthorized takes an *http.Request and returns a pointer to a string containing the consumer key,
+// or nil if not authorized
+func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 	re := regexp.MustCompile("oauth_consumer_key=(?P<consumer_key>(\"\\w+\")|(\\w+))(,|$)")
-	auth_header := request.Header.Get("Authorization")
-	if !re.MatchString(auth_header) {
-		return false, nil
+	authHeader := request.Header.Get("Authorization")
+	if !re.MatchString(authHeader) {
+		return nil, nil
 	}
-	consumerKey := re.FindStringSubmatch(auth_header)[1]
+	consumerKey := re.FindStringSubmatch(authHeader)[1]
 
 	// Strip "s
 	consumerKey = strings.Trim(consumerKey, "\"")
 
 	consumerSecret, err := provider.SecretGetter(consumerKey)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	consumer := NewConsumer(consumerKey, consumerSecret, ServiceProvider{})
 
@@ -1243,27 +1248,30 @@ func (provider *Provider) IsAuthorized(request *http.Request) (bool, error) {
 
 	// Get the OAuth header vals. Probably would be better with regexp,
 	// but my regex foo is low today.
-	auth_header = auth_header[5:]
-	params := strings.Split(auth_header, ",")
+	authHeader = authHeader[5:]
+	params := strings.Split(authHeader, ",")
 	pars := make(map[string]string)
 	for _, param := range params {
 		vals := strings.Split(param, "=")
-		pars[strings.Trim(vals[0], " ")] = strings.Trim(strings.Trim(vals[1], "\""), " ")
-
+		k := strings.Trim(vals[0], " ")
+		v := strings.Trim(strings.Trim(vals[1], "\""), " ")
+		if strings.HasPrefix(k, "oauth") {
+			pars[k] = v
+		}
 	}
 	oauthSignature, err := url.QueryUnescape(pars["oauth_signature"])
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	delete(pars, "oauth_signature")
 
 	// Check the timestamp
 	oauthTimeNumber, err := strconv.Atoi(pars["oauth_timestamp"])
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	if math.Abs(float64(int64(oauthTimeNumber)-provider.clock.Seconds())) > 5*60 {
-		return false, nil
+		return nil, nil
 	}
 
 	userParams := requestURL.Query()
@@ -1276,14 +1284,14 @@ func (provider *Provider) IsAuthorized(request *http.Request) (bool, error) {
 		// to allow reads/closes down the line.
 		originalBody, err := ioutil.ReadAll(request.Body)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 		rdr1 := oauthBufferReader{bytes.NewBuffer(originalBody)}
 		request.Body = rdr1
 
 		bodyParams, err := url.ParseQuery(string(originalBody))
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 
 		for key, values := range bodyParams {
@@ -1310,16 +1318,15 @@ func (provider *Provider) IsAuthorized(request *http.Request) (bool, error) {
 	}
 
 	baseString := consumer.requestString(request.Method, requestURL.String(), orderedParams)
-
 	signature, err := consumer.signer.Sign(baseString, "")
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	if signature != oauthSignature {
-		return false, nil
+		return nil, nil
 	}
 
-	return true, nil
+	return &consumerKey, nil
 
 }

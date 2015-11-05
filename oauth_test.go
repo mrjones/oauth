@@ -1185,5 +1185,5 @@ func TestProviderIsAuthorizedGood(t *testing.T) {
 	authorized, err := p.IsAuthorized(fakeRequest)
 
 	assertEq(t, err, nil)
-	assertEq(t, authorized, true)
+	assertEq(t, *authorized, "consumerkey")
 }
