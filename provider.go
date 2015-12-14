@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"io/ioutil"
 	"math"
-	"net/url"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -158,4 +158,3 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 
 	return &consumerKey, nil
 }
-

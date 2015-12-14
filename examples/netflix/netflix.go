@@ -82,7 +82,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	response, err := client.Get(
 		"http://api-public.netflix.com/users/current")
 	if err != nil {

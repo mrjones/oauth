@@ -111,7 +111,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	response, err := client.Get(*jiraUrl+"/rest/api/2/issue/BULK-1")
+	response, err := client.Get(*jiraUrl + "/rest/api/2/issue/BULK-1")
 	if err != nil {
 		log.Fatal(err)
 	}
