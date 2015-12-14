@@ -13,6 +13,7 @@ import (
 
 //
 // OAuth1 2-legged provider
+// Contributed by https://github.com/jacobpgallagher
 //
 
 // Provide an buffer reader which implements the Close() interface
