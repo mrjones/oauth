@@ -77,8 +77,8 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 	logclops.DebugLog("Consumer: %#v", consumer)
 
 	requestURL := request.URL
-	logclops.DebugLog("Request URL: %#v", requestURL)
 	makeURLAbs(requestURL, request)
+	requestURL.Scheme = "https"
 
 	logclops.DebugLog("Request URL: %#v", requestURL)
 
@@ -166,7 +166,7 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 		return nil, err
 	}
 
-	logclops.DebugLog("signature: %s  oauthSignature: %s", baseString, oauthSignature)
+	logclops.DebugLog("signature: %s  oauthSignature: %s", signature, oauthSignature)
 	if signature != oauthSignature {
 		return nil, nil
 	}
