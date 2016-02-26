@@ -158,7 +158,8 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 
 	logclops.DebugLog("Ordered params: %#v", orderedParams)
 
-	baseString := consumer.requestString(request.Method, requestURL.String(), orderedParams)
+	//baseString := consumer.requestString(request.Method, requestURL.String(), orderedParams)
+	baseString := consumer.requestString("GET", requestURL.String(), orderedParams)
 	logclops.DebugLog("baseString: %s", baseString)
 	signature, err := consumer.signer.Sign(baseString, "")
 	logclops.DebugLog("signature: %s", signature)
