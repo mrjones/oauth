@@ -62,6 +62,7 @@ const (
 	SIGNATURE_METHOD_HMAC_SHA1 = "HMAC-SHA1"
 	SIGNATURE_METHOD_RSA_SHA1  = "RSA-SHA1"
 
+	OAUTH_HEADER           = "OAuth "
 	CALLBACK_PARAM         = "oauth_callback"
 	CONSUMER_KEY_PARAM     = "oauth_consumer_key"
 	NONCE_PARAM            = "oauth_nonce"
@@ -736,7 +737,7 @@ func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, er
 	authParams.Add(SIGNATURE_PARAM, signature)
 
 	// Set auth header.
-	oauthHdr := "OAuth "
+	oauthHdr := OAUTH_HEADER
 	for pos, key := range authParams.Keys() {
 		for innerPos, value := range authParams.Get(key) {
 			if pos+innerPos > 0 {

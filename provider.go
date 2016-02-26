@@ -6,7 +6,6 @@ import (
 	"math"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -24,9 +23,11 @@ type oauthBufferReader struct {
 // So that it implements the io.ReadCloser interface
 func (m oauthBufferReader) Close() error { return nil }
 
+type ConsumerGetter func(key string, header map[string]string) (*Consumer, error)
+
 // Provider provides methods for a 2-legged Oauth1 provider
 type Provider struct {
-	SecretGetter func(string) (string, error)
+	ConsumerGetter ConsumerGetter
 
 	// For mocking
 	clock clock
@@ -34,7 +35,7 @@ type Provider struct {
 
 // NewProvider takes a function to get the consumer secret from a datastore.
 // Returns a Provider
-func NewProvider(secretGetter func(string) (string, error)) *Provider {
+func NewProvider(secretGetter ConsumerGetter) *Provider {
 	provider := &Provider{
 		secretGetter,
 		&defaultClock{},
@@ -57,27 +58,16 @@ func makeURLAbs(url *url.URL, request *http.Request) {
 // IsAuthorized takes an *http.Request and returns a pointer to a string containing the consumer key,
 // or nil if not authorized
 func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
-	re := regexp.MustCompile("oauth_consumer_key=(?P<consumer_key>(\"\\w+\")|(\\w+))(,|$)")
-	authHeader := request.Header.Get("Authorization")
-	if !re.MatchString(authHeader) {
-		return nil, nil
-	}
-	consumerKey := re.FindStringSubmatch(authHeader)[1]
-
-	// Strip "s
-	consumerKey = strings.Trim(consumerKey, "\"")
-
-	consumerSecret, err := provider.SecretGetter(consumerKey)
-	if err != nil {
-		return nil, err
-	}
-	consumer := NewConsumer(consumerKey, consumerSecret, ServiceProvider{})
-
 	requestURL := request.URL
 	makeURLAbs(requestURL, request)
 
 	// Get the OAuth header vals. Probably would be better with regexp,
 	// but my regex foo is low today.
+	authHeader := request.Header.Get("Authorization")
+	if strings.EqualFold(OAUTH_HEADER, authHeader[0:5]) {
+		return nil, nil
+	}
+
 	authHeader = authHeader[5:]
 	params := strings.Split(authHeader, ",")
 	pars := make(map[string]string)
@@ -102,6 +92,16 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 	}
 	if math.Abs(float64(int64(oauthTimeNumber)-provider.clock.Seconds())) > 5*60 {
 		return nil, nil
+	}
+
+	consumerKey, ok := pars[CONSUMER_KEY_PARAM]
+	if !ok {
+		return nil, nil
+	}
+
+	consumer, err := provider.ConsumerGetter(consumerKey, pars)
+	if err != nil {
+		return nil, err
 	}
 
 	userParams := requestURL.Query()
