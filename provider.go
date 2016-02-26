@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"bytes"
+	"com-flyclops-common/logclops"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -73,8 +74,13 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 	}
 	consumer := NewConsumer(consumerKey, consumerSecret, ServiceProvider{})
 
+	logclops.DebugLog("Consumer: %#v", consumer)
+
 	requestURL := request.URL
+	logclops.DebugLog("Request URL: %#v", requestURL)
 	makeURLAbs(requestURL, request)
+
+	logclops.DebugLog("Request URL: %#v", requestURL)
 
 	// Get the OAuth header vals. Probably would be better with regexp,
 	// but my regex foo is low today.
@@ -96,6 +102,7 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 	delete(pars, "oauth_signature")
 
 	// Check the timestamp
+	logclops.DebugLog("Checking timestamp")
 	oauthTimeNumber, err := strconv.Atoi(pars["oauth_timestamp"])
 	if err != nil {
 		return nil, err
@@ -105,10 +112,12 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 	}
 
 	userParams := requestURL.Query()
+	logclops.DebugLog("User params: %#v", userParams)
 
 	// If the content-type is 'application/x-www-form-urlencoded',
 	// need to fetch the params and use them in the signature.
 	if request.Header.Get("Content-Type") == "application/x-www-form-urlencoded" {
+		logclops.DebugLog("In form urlencoded")
 
 		// Copy the Body to a buffer and use an oauthBufferReader
 		// to allow reads/closes down the line.
@@ -147,12 +156,17 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 		}
 	}
 
+	logclops.DebugLog("Ordered params: %#v", orderedParams)
+
 	baseString := consumer.requestString(request.Method, requestURL.String(), orderedParams)
+	logclops.DebugLog("baseString: %s", baseString)
 	signature, err := consumer.signer.Sign(baseString, "")
+	logclops.DebugLog("signature: %s", signature)
 	if err != nil {
 		return nil, err
 	}
 
+	logclops.DebugLog("signature: %s  oauthSignature: %s", baseString, oauthSignature)
 	if signature != oauthSignature {
 		return nil, nil
 	}
