@@ -58,7 +58,7 @@ func makeURLAbs(url *url.URL, request *http.Request) {
 // IsAuthorized takes an *http.Request and returns a pointer to a string containing the consumer key,
 // or nil if not authorized
 func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
-	re := regexp.MustCompile(`oauth_consumer_key=(?P<consumer_key>("[\w\-\=]+")|([\w\-\=]+))(,|$)`)
+	re := regexp.MustCompile(`oauth_consumer_key=(?P<consumer_key>("[\w\-]+")|([\w\-]+))(,|$)`)
 	authHeader := request.Header.Get("Authorization")
 	if !re.MatchString(authHeader) {
 		return nil, nil
@@ -88,7 +88,7 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 	params := strings.Split(authHeader, ",")
 	pars := make(map[string]string)
 	for _, param := range params {
-		vals := strings.Split(param, "=")
+		vals := strings.SplitN(param, "=", 2)
 		k := strings.Trim(vals[0], " ")
 		v := strings.Trim(strings.Trim(vals[1], "\""), " ")
 		if strings.HasPrefix(k, "oauth") {
