@@ -57,7 +57,7 @@ func makeURLAbs(url *url.URL, request *http.Request) {
 // IsAuthorized takes an *http.Request and returns a pointer to a string containing the consumer key,
 // or nil if not authorized
 func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
-	re := regexp.MustCompile("oauth_consumer_key=(?P<consumer_key>(\"\\w+\")|(\\w+))(,|$)")
+	re := regexp.MustCompile(`oauth_consumer_key=(?P<consumer_key>("[\w\-]+")|([\w\-]+))(,|$)`)
 	authHeader := request.Header.Get("Authorization")
 	if !re.MatchString(authHeader) {
 		return nil, nil
@@ -76,22 +76,25 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 	requestURL := request.URL
 	makeURLAbs(requestURL, request)
 
+	// Force https
+	requestURL.Scheme = "https"
+
 	// Get the OAuth header vals. Probably would be better with regexp,
 	// but my regex foo is low today.
 	authHeader = authHeader[5:]
 	params := strings.Split(authHeader, ",")
 	pars := make(map[string]string)
 	for _, param := range params {
-		vals := strings.Split(param, "=")
+		vals := strings.SplitN(param, "=", 2)
 		k := strings.Trim(vals[0], " ")
 		v := strings.Trim(strings.Trim(vals[1], "\""), " ")
 		if strings.HasPrefix(k, "oauth") {
 			pars[k] = v
 		}
 	}
-	oauthSignature, err := url.QueryUnescape(pars["oauth_signature"])
-	if err != nil {
-		return nil, err
+	oauthSignature, ok := pars["oauth_signature"]
+	if !ok {
+		return nil, nil
 	}
 	delete(pars, "oauth_signature")
 
@@ -147,7 +150,9 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 		}
 	}
 
-	baseString := consumer.requestString(request.Method, requestURL.String(), orderedParams)
+	//baseString := consumer.requestString(request.Method, requestURL.String(), orderedParams)
+	baseString := consumer.requestString("GET", requestURL.String(), orderedParams)
+	consumer.signer.Debug(true)
 	signature, err := consumer.signer.Sign(baseString, "")
 	if err != nil {
 		return nil, err
