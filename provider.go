@@ -82,7 +82,7 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 	params := strings.Split(authHeader, ",")
 	pars := make(map[string]string)
 	for _, param := range params {
-		vals := strings.Split(param, "=")
+		vals := strings.SplitN(param, "=", 2)
 		k := strings.Trim(vals[0], " ")
 		v := strings.Trim(strings.Trim(vals[1], "\""), " ")
 		if strings.HasPrefix(k, "oauth") {
