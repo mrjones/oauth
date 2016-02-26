@@ -95,9 +95,9 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 			pars[k] = v
 		}
 	}
-	oauthSignature, err := url.QueryUnescape(pars["oauth_signature"])
-	if err != nil {
-		return nil, err
+	oauthSignature, ok := pars["oauth_signature"]
+	if !ok {
+		return nil, nil
 	}
 	delete(pars, "oauth_signature")
 
