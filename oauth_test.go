@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -1161,6 +1162,13 @@ func (m *MockSigner) Sign(message string, tokenSecret string) (string, error) {
 	m.UsedKey = m.ConsumerSecret + "&" + tokenSecret
 	m.SignedString = message
 	return "MOCK_SIGNATURE", nil
+}
+
+func (m *MockSigner) Verify(message string, signature string) error {
+	if signature != "MOCK_SIGNATURE" {
+		return fmt.Errorf("bad mock signature")
+	}
+	return nil
 }
 
 func (m *MockSigner) Debug(enabled bool) {}

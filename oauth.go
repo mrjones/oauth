@@ -791,6 +791,7 @@ type key interface {
 
 type signer interface {
 	Sign(message string, tokenSecret string) (string, error)
+	Verify(message string, signature string) error
 	SignatureMethod() string
 	Debug(enabled bool)
 }
@@ -918,6 +919,22 @@ func (s *SHA1Signer) Sign(message string, tokenSecret string) (string, error) {
 	return base64signature, nil
 }
 
+func (s *SHA1Signer) Verify(message string, signature string) error {
+	if s.debug {
+		fmt.Println("Verifying Base64 signature:", signature)
+	}
+	validSignature, err := s.Sign(message, "")
+	if err != nil {
+		return err
+	}
+
+	if validSignature != signature {
+		return fmt.Errorf("signature did not match")
+	}
+
+	return nil
+}
+
 func (s *SHA1Signer) SignatureMethod() string {
 	return SIGNATURE_METHOD_HMAC_SHA1
 }
@@ -953,6 +970,25 @@ func (s *RSASigner) Sign(message string, tokenSecret string) (string, error) {
 	}
 
 	return base64signature, nil
+}
+
+func (s *RSASigner) Verify(message string, base64signature string) error {
+	if s.debug {
+		fmt.Println("Verifying:", message)
+		fmt.Println("Verifying Base64 signature:", base64signature)
+	}
+
+	hashFunc := crypto.SHA1
+	h := hashFunc.New()
+	h.Write([]byte(message))
+	digest := h.Sum(nil)
+
+	signature, err := base64.StdEncoding.DecodeString(base64signature)
+	if err != nil {
+		return err
+	}
+
+	return rsa.VerifyPKCS1v15(&s.privateKey.PublicKey, hashFunc, digest, signature)
 }
 
 func (s *RSASigner) SignatureMethod() string {

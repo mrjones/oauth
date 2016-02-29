@@ -148,13 +148,9 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 	}
 
 	baseString := consumer.requestString(request.Method, requestURL.String(), orderedParams)
-	signature, err := consumer.signer.Sign(baseString, "")
+	err = consumer.signer.Verify(baseString, oauthSignature)
 	if err != nil {
 		return nil, err
-	}
-
-	if signature != oauthSignature {
-		return nil, nil
 	}
 
 	return &consumerKey, nil
