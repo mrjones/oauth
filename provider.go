@@ -47,10 +47,10 @@ func NewProvider(secretGetter ConsumerGetter) *Provider {
 func makeURLAbs(url *url.URL, request *http.Request) {
 	if !url.IsAbs() {
 		url.Host = request.Host
-		if strings.HasPrefix(request.Proto, "HTTP/") {
-			url.Scheme = "http"
-		} else {
+		if request.TLS != nil || request.Header.Get("X-Forwarded-Proto") == "https" {
 			url.Scheme = "https"
+		} else {
+			url.Scheme = "http"
 		}
 	}
 }
