@@ -956,6 +956,36 @@ func TestSemicolonInParameters_NewApi(t *testing.T) {
 	assertEq(t, "BODY:SUCCESS", string(body))
 }
 
+func TestBodyHashStandard(t *testing.T) {
+	m := newMocks(t)
+
+	req, err := http.NewRequest("POST", "http://www.mrjon.es/someurl", strings.NewReader(`foo=123`))
+	assertEq(t, nil, err)
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	hash, err := calculateBodyHash(req, m.signer)
+	assertEq(t, nil, err)
+	assertEq(t, "", hash)
+
+	req, err = http.NewRequest("GET", "http://www.mrjon.es/someurl?foo=123", nil)
+	assertEq(t, nil, err)
+	hash, err = calculateBodyHash(req, m.signer)
+	assertEq(t, nil, err)
+	assertEq(t, "2jmj7l5rSw0yVb/vlWAYkK/YBwk=", hash)
+
+	req, err = http.NewRequest("GET", "http://www.mrjon.es/someurl?foo=123", strings.NewReader(""))
+	assertEq(t, nil, err)
+	hash, err = calculateBodyHash(req, m.signer)
+	assertEq(t, nil, err)
+	assertEq(t, "2jmj7l5rSw0yVb/vlWAYkK/YBwk=", hash)
+
+	req, err = http.NewRequest("GET", "http://www.mrjon.es/someurl?foo=123", strings.NewReader("Hello World!"))
+	assertEq(t, nil, err)
+	hash, err = calculateBodyHash(req, m.signer)
+	assertEq(t, nil, err)
+	assertEq(t, "Lve95gjOVATpfV8EL5X4nxwjKHE=", hash)
+
+}
+
 func basicConsumer() *Consumer {
 	return NewConsumer(
 		"consumerkey",

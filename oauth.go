@@ -64,6 +64,7 @@ const (
 
 	HTTP_AUTH_HEADER       = "Authorization"
 	OAUTH_HEADER           = "OAuth "
+	BODY_HASH_PARAM        = "oauth_body_hash"
 	CALLBACK_PARAM         = "oauth_callback"
 	CONSUMER_KEY_PARAM     = "oauth_consumer_key"
 	NONCE_PARAM            = "oauth_nonce"
@@ -133,6 +134,7 @@ type ServiceProvider struct {
 	AuthorizeTokenUrl string
 	AccessTokenUrl    string
 	HttpMethod        string
+	BodyHash          bool
 }
 
 func (sp *ServiceProvider) httpMethod() string {
@@ -774,6 +776,35 @@ func parseBody(request *http.Request) (pairs, error) {
 	return paramPairs, nil
 }
 
+func calculateBodyHash(request *http.Request, s signer) (string, error) {
+	if request.Header.Get("Content-Type") ==
+		"application/x-www-form-urlencoded" {
+		return "", nil
+	}
+
+	var originalBody []byte
+
+	if request.Body != nil {
+		var err error
+
+		defer request.Body.Close()
+		originalBody, err = ioutil.ReadAll(request.Body)
+		if err != nil {
+			return "", err
+		}
+
+		// If there was a body, we have to re-install it
+		// (because we've ruined it by reading it).
+		request.Body = ioutil.NopCloser(bytes.NewReader(originalBody))
+	}
+
+	h := s.HashFunc().New()
+	h.Write(originalBody)
+	rawSignature := h.Sum(nil)
+
+	return base64.StdEncoding.EncodeToString(rawSignature), nil
+}
+
 func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, error) {
 	serverRequest := clone(userRequest)
 
@@ -786,6 +817,18 @@ func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, er
 	if len(rt.token.Token) > 0 {
 		allParams.Add(TOKEN_PARAM, rt.token.Token)
 	}
+
+	if rt.consumer.serviceProvider.BodyHash {
+		bodyHash, err := calculateBodyHash(serverRequest, rt.consumer.signer)
+		if err != nil {
+			return nil, err
+		}
+
+		if bodyHash != "" {
+			allParams.Add(BODY_HASH_PARAM, bodyHash)
+		}
+	}
+
 	authParams := allParams.Clone()
 
 	// TODO(mrjones): put these directly into the paramPairs below?

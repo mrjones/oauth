@@ -108,6 +108,21 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 		return nil, err
 	}
 
+	if consumer.serviceProvider.BodyHash {
+		bodyHash, err := calculateBodyHash(request, consumer.signer)
+		if err != nil {
+			return nil, err
+		}
+
+		sentHash, ok := pars[BODY_HASH_PARAM]
+
+		if bodyHash == "" && ok {
+			return nil, fmt.Errorf("body_hash must not be set")
+		} else if sentHash != bodyHash {
+			return nil, fmt.Errorf("body_hash mismatch")
+		}
+	}
+
 	userParams, err := parseBody(request)
 	if err != nil {
 		return nil, err
