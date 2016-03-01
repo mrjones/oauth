@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"bytes"
+	"fmt"
 	"math"
 	"net/http"
 	"net/url"
@@ -63,7 +64,7 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 	// but my regex foo is low today.
 	authHeader := request.Header.Get(HTTP_AUTH_HEADER)
 	if strings.EqualFold(OAUTH_HEADER, authHeader[0:5]) {
-		return nil, nil
+		return nil, fmt.Errorf("no OAuth Authorization header")
 	}
 
 	authHeader = authHeader[5:]
@@ -89,12 +90,12 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 		return nil, err
 	}
 	if math.Abs(float64(int64(oauthTimeNumber)-provider.clock.Seconds())) > 5*60 {
-		return nil, nil
+		return nil, fmt.Errorf("too much clock skew")
 	}
 
 	consumerKey, ok := pars[CONSUMER_KEY_PARAM]
 	if !ok {
-		return nil, nil
+		return nil, fmt.Errorf("no consumer key")
 	}
 
 	consumer, err := provider.ConsumerGetter(consumerKey, pars)
