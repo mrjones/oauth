@@ -6,7 +6,9 @@ import (
 )
 
 func TestProviderIsAuthorizedGood(t *testing.T) {
-	p := NewProvider(func(s string) (string, error) { return "consumersecret", nil })
+	p := NewProvider(func(s string, h map[string]string) (*Consumer, error) {
+		return NewConsumer(s, "consumersecret", ServiceProvider{}), nil
+	})
 	p.clock = &MockClock{Time: 1446226936}
 
 	fakeRequest, err := http.NewRequest("GET", "https://example.com/some/path?q=query&q=another_query", nil)
