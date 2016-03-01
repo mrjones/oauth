@@ -41,7 +41,6 @@ import (
 	"crypto/hmac"
 	cryptoRand "crypto/rand"
 	"crypto/rsa"
-	"crypto/sha1"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -909,9 +908,12 @@ func (s *SHA1Signer) Sign(message string, tokenSecret string) (string, error) {
 		fmt.Println("Signing:", message)
 		fmt.Println("Key:", key)
 	}
-	hashfun := hmac.New(sha1.New, []byte(key))
-	hashfun.Write([]byte(message))
-	rawSignature := hashfun.Sum(nil)
+
+	hashFunc := crypto.SHA1
+	h := hmac.New(hashFunc.New, []byte(key))
+	h.Write([]byte(message))
+	rawSignature := h.Sum(nil)
+
 	base64signature := base64.StdEncoding.EncodeToString(rawSignature)
 	if s.debug {
 		fmt.Println("Base64 signature:", base64signature)
