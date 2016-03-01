@@ -58,6 +58,8 @@ func makeURLAbs(url *url.URL, request *http.Request) {
 // IsAuthorized takes an *http.Request and returns a pointer to a string containing the consumer key,
 // or nil if not authorized
 func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
+	var err error
+
 	makeURLAbs(request.URL, request)
 
 	// Get the OAuth header vals. Probably would be better with regexp,
@@ -75,12 +77,15 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 		k := strings.Trim(vals[0], " ")
 		v := strings.Trim(strings.Trim(vals[1], "\""), " ")
 		if strings.HasPrefix(k, "oauth") {
-			pars[k] = v
+			pars[k], err = url.QueryUnescape(v)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	oauthSignature, err := url.QueryUnescape(pars[SIGNATURE_PARAM])
-	if err != nil {
-		return nil, err
+	oauthSignature, ok := pars[SIGNATURE_PARAM]
+	if !ok {
+		return nil, fmt.Errorf("no oauth signature")
 	}
 	delete(pars, SIGNATURE_PARAM)
 
