@@ -1021,7 +1021,7 @@ func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
 		if req.Header == nil {
 			mock.t.Fatal("Missing 'Authorization' header.")
 		}
-		mock.oAuthChecker.CheckHeader(req.Header.Get("Authorization"))
+		mock.oAuthChecker.CheckHeader(req.Header.Get(HTTP_AUTH_HEADER))
 	}
 
 	if len(mock.expectedHeaders) > 0 {

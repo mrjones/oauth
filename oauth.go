@@ -62,6 +62,7 @@ const (
 	SIGNATURE_METHOD_HMAC = "HMAC-"
 	SIGNATURE_METHOD_RSA  = "RSA-"
 
+	HTTP_AUTH_HEADER       = "Authorization"
 	OAUTH_HEADER           = "OAuth "
 	CALLBACK_PARAM         = "oauth_callback"
 	CONSUMER_KEY_PARAM     = "oauth_consumer_key"
@@ -816,7 +817,7 @@ func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, er
 			oauthHdr += key + "=\"" + value + "\""
 		}
 	}
-	serverRequest.Header.Add("Authorization", oauthHdr)
+	serverRequest.Header.Add(HTTP_AUTH_HEADER, oauthHdr)
 
 	if rt.consumer.debug {
 		fmt.Printf("Request: %v\n", serverRequest)

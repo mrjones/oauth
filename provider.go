@@ -63,7 +63,7 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 
 	// Get the OAuth header vals. Probably would be better with regexp,
 	// but my regex foo is low today.
-	authHeader := request.Header.Get("Authorization")
+	authHeader := request.Header.Get(HTTP_AUTH_HEADER)
 	if strings.EqualFold(OAUTH_HEADER, authHeader[0:5]) {
 		return nil, nil
 	}

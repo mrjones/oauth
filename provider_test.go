@@ -19,7 +19,7 @@ func TestProviderIsAuthorizedGood(t *testing.T) {
 	}
 
 	// Set header to good oauth1 header
-	fakeRequest.Header.Set("Authorization", "OAuth oauth_nonce=\"799507437267152061446226936\", oauth_timestamp=\"1446226936\", oauth_version=\"1.0\", oauth_signature_method=\"HMAC-SHA1\", oauth_consumer_key=\"consumerkey\", oauth_signature=\"MOCK_SIGNATURE\"")
+	fakeRequest.Header.Set(HTTP_AUTH_HEADER, "OAuth oauth_nonce=\"799507437267152061446226936\", oauth_timestamp=\"1446226936\", oauth_version=\"1.0\", oauth_signature_method=\"HMAC-SHA1\", oauth_consumer_key=\"consumerkey\", oauth_signature=\"MOCK_SIGNATURE\"")
 
 	authorized, err := p.IsAuthorized(fakeRequest)
 
@@ -41,7 +41,7 @@ func TestConsumerKeyWithEqualsInIt(t *testing.T) {
 	}
 
 	// Set header to good oauth1 header
-	fakeRequest.Header.Set("Authorization", "OAuth oauth_nonce=\"799507437267152061446226936\", oauth_timestamp=\"1446226936\", oauth_version=\"1.0\", oauth_signature_method=\"HMAC-SHA1\", oauth_consumer_key=\"consumerkeywithequals=\", oauth_signature=\"MOCK_SIGNATURE\"")
+	fakeRequest.Header.Set(HTTP_AUTH_HEADER, "OAuth oauth_nonce=\"799507437267152061446226936\", oauth_timestamp=\"1446226936\", oauth_version=\"1.0\", oauth_signature_method=\"HMAC-SHA1\", oauth_consumer_key=\"consumerkeywithequals=\", oauth_signature=\"MOCK_SIGNATURE\"")
 
 	authorized, err := p.IsAuthorized(fakeRequest)
 
