@@ -62,6 +62,7 @@ const (
 	SIGNATURE_METHOD_HMAC_SHA1 = "HMAC-SHA1"
 	SIGNATURE_METHOD_RSA_SHA1  = "RSA-SHA1"
 
+	OAUTH_HEADER           = "OAuth "
 	CALLBACK_PARAM         = "oauth_callback"
 	CONSUMER_KEY_PARAM     = "oauth_consumer_key"
 	NONCE_PARAM            = "oauth_nonce"
@@ -314,7 +315,7 @@ func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestTok
 	for k, v := range c.AdditionalAuthorizationUrlParams {
 		loginParams.Set(k, v)
 	}
-	loginParams.Set("oauth_token", requestToken.Token)
+	loginParams.Set(TOKEN_PARAM, requestToken.Token)
 
 	loginUrl = c.serviceProvider.AuthorizeTokenUrl + "?" + loginParams.Encode()
 
@@ -736,7 +737,7 @@ func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, er
 	authParams.Add(SIGNATURE_PARAM, signature)
 
 	// Set auth header.
-	oauthHdr := "OAuth "
+	oauthHdr := OAUTH_HEADER
 	for pos, key := range authParams.Keys() {
 		for innerPos, value := range authParams.Get(key) {
 			if pos+innerPos > 0 {
@@ -790,6 +791,7 @@ type key interface {
 
 type signer interface {
 	Sign(message string, tokenSecret string) (string, error)
+	Verify(message string, signature string) error
 	SignatureMethod() string
 	Debug(enabled bool)
 }
@@ -917,6 +919,22 @@ func (s *SHA1Signer) Sign(message string, tokenSecret string) (string, error) {
 	return base64signature, nil
 }
 
+func (s *SHA1Signer) Verify(message string, signature string) error {
+	if s.debug {
+		fmt.Println("Verifying Base64 signature:", signature)
+	}
+	validSignature, err := s.Sign(message, "")
+	if err != nil {
+		return err
+	}
+
+	if validSignature != signature {
+		return fmt.Errorf("signature did not match")
+	}
+
+	return nil
+}
+
 func (s *SHA1Signer) SignatureMethod() string {
 	return SIGNATURE_METHOD_HMAC_SHA1
 }
@@ -952,6 +970,25 @@ func (s *RSASigner) Sign(message string, tokenSecret string) (string, error) {
 	}
 
 	return base64signature, nil
+}
+
+func (s *RSASigner) Verify(message string, base64signature string) error {
+	if s.debug {
+		fmt.Println("Verifying:", message)
+		fmt.Println("Verifying Base64 signature:", base64signature)
+	}
+
+	hashFunc := crypto.SHA1
+	h := hashFunc.New()
+	h.Write([]byte(message))
+	digest := h.Sum(nil)
+
+	signature, err := base64.StdEncoding.DecodeString(base64signature)
+	if err != nil {
+		return err
+	}
+
+	return rsa.VerifyPKCS1v15(&s.privateKey.PublicKey, hashFunc, digest, signature)
 }
 
 func (s *RSASigner) SignatureMethod() string {
