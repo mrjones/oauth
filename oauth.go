@@ -722,29 +722,14 @@ func canonicalizeUrl(u *url.URL) string {
 	return buf.String()
 }
 
-func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, error) {
-	serverRequest := clone(userRequest)
-
-	allParams := rt.consumer.baseParams(
-		rt.consumer.consumerKey, rt.consumer.AdditionalParams)
-
-	// Do not add the "oauth_token" parameter, if the access token has not been
-	// specified. By omitting this parameter when it is not specified, allows
-	// two-legged OAuth calls.
-	if len(rt.token.Token) > 0 {
-		allParams.Add(TOKEN_PARAM, rt.token.Token)
-	}
-	authParams := allParams.Clone()
-
-	// TODO(mrjones): put these directly into the paramPairs below?
+func parseBody(request *http.Request) (pairs, error) {
 	userParams := map[string]string{}
 
-	originalBody := []byte{}
 	// TODO(mrjones): factor parameter extraction into a separate method
-	if userRequest.Header.Get("Content-Type") !=
+	if request.Header.Get("Content-Type") !=
 		"application/x-www-form-urlencoded" {
 		// Most of the time we get parameters from the query string:
-		for k, vs := range userRequest.URL.Query() {
+		for k, vs := range request.URL.Query() {
 			if len(vs) != 1 {
 				return nil, fmt.Errorf("Must have exactly one value per param")
 			}
@@ -753,12 +738,15 @@ func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, er
 		}
 	} else {
 		// x-www-form-urlencoded parameters come from the body instead:
-		var err error
-		defer userRequest.Body.Close()
-		originalBody, err = ioutil.ReadAll(userRequest.Body)
+		defer request.Body.Close()
+		originalBody, err := ioutil.ReadAll(request.Body)
 		if err != nil {
 			return nil, err
 		}
+
+		// If there was a body, we have to re-install it
+		// (because we've ruined it by reading it).
+		request.Body = ioutil.NopCloser(bytes.NewReader(originalBody))
 
 		params, err := url.ParseQuery(string(originalBody))
 		if err != nil {
@@ -783,19 +771,31 @@ func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, er
 	}
 	sort.Sort(paramPairs)
 
-	separator := ""
-	encodedUserParams := ""
-	for i := range paramPairs {
-		allParams.Add(paramPairs[i].key, paramPairs[i].value)
-		thisPair := escape(paramPairs[i].key) + "=" + escape(paramPairs[i].value)
-		encodedUserParams += separator + thisPair
-		separator = "&"
+	return paramPairs, nil
+}
+
+func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, error) {
+	serverRequest := clone(userRequest)
+
+	allParams := rt.consumer.baseParams(
+		rt.consumer.consumerKey, rt.consumer.AdditionalParams)
+
+	// Do not add the "oauth_token" parameter, if the access token has not been
+	// specified. By omitting this parameter when it is not specified, allows
+	// two-legged OAuth calls.
+	if len(rt.token.Token) > 0 {
+		allParams.Add(TOKEN_PARAM, rt.token.Token)
+	}
+	authParams := allParams.Clone()
+
+	// TODO(mrjones): put these directly into the paramPairs below?
+	userParams, err := parseBody(serverRequest)
+	if err != nil {
+		return nil, err
 	}
 
-	if len(originalBody) > 0 {
-		// If there was a body, we have to re-install it
-		// (because we've ruined it by reading it).
-		serverRequest.Body = ioutil.NopCloser(strings.NewReader(string(originalBody)))
+	for i := range userParams {
+		allParams.Add(userParams[i].key, userParams[i].value)
 	}
 
 	baseString := rt.consumer.requestString(userRequest.Method, canonicalizeUrl(userRequest.URL), allParams)

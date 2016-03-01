@@ -13,7 +13,7 @@ func TestProviderIsAuthorizedGood(t *testing.T) {
 	})
 	p.clock = &MockClock{Time: 1446226936}
 
-	fakeRequest, err := http.NewRequest("GET", "https://example.com/some/path?q=query&q=another_query", nil)
+	fakeRequest, err := http.NewRequest("GET", "https://example.com/some/path?q=query&q1=another_query", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func TestConsumerKeyWithEqualsInIt(t *testing.T) {
 	})
 	p.clock = &MockClock{Time: 1446226936}
 
-	fakeRequest, err := http.NewRequest("GET", "https://example.com/some/path?q=query&q=another_query", nil)
+	fakeRequest, err := http.NewRequest("GET", "https://example.com/some/path?q=query&q1=another_query", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

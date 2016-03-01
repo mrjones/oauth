@@ -2,7 +2,6 @@ package oauth
 
 import (
 	"bytes"
-	"io/ioutil"
 	"math"
 	"net/http"
 	"net/url"
@@ -58,8 +57,7 @@ func makeURLAbs(url *url.URL, request *http.Request) {
 // IsAuthorized takes an *http.Request and returns a pointer to a string containing the consumer key,
 // or nil if not authorized
 func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
-	requestURL := request.URL
-	makeURLAbs(requestURL, request)
+	makeURLAbs(request.URL, request)
 
 	// Get the OAuth header vals. Probably would be better with regexp,
 	// but my regex foo is low today.
@@ -104,50 +102,21 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 		return nil, err
 	}
 
-	userParams := requestURL.Query()
-
-	// If the content-type is 'application/x-www-form-urlencoded',
-	// need to fetch the params and use them in the signature.
-	if request.Header.Get("Content-Type") == "application/x-www-form-urlencoded" {
-
-		// Copy the Body to a buffer and use an oauthBufferReader
-		// to allow reads/closes down the line.
-		originalBody, err := ioutil.ReadAll(request.Body)
-		if err != nil {
-			return nil, err
-		}
-		rdr1 := oauthBufferReader{bytes.NewBuffer(originalBody)}
-		request.Body = rdr1
-
-		bodyParams, err := url.ParseQuery(string(originalBody))
-		if err != nil {
-			return nil, err
-		}
-
-		for key, values := range bodyParams {
-			if _, exists := userParams[key]; exists {
-				for _, value := range values {
-					userParams[key] = append(userParams[key], value)
-				}
-			} else {
-				userParams[key] = values
-			}
-		}
+	userParams, err := parseBody(request)
+	if err != nil {
+		return nil, err
 	}
-	requestURL.RawQuery = ""
 
-	orderedParams := NewOrderedParams()
+	allParams := NewOrderedParams()
 	for key, value := range pars {
-		orderedParams.Add(key, value)
+		allParams.Add(key, value)
 	}
 
-	for key, values := range userParams {
-		for _, value := range values {
-			orderedParams.Add(key, value)
-		}
+	for i := range userParams {
+		allParams.Add(userParams[i].key, userParams[i].value)
 	}
 
-	baseString := consumer.requestString(request.Method, requestURL.String(), orderedParams)
+	baseString := consumer.requestString(request.Method, canonicalizeUrl(request.URL), allParams)
 	err = consumer.signer.Verify(baseString, oauthSignature)
 	if err != nil {
 		return nil, err
