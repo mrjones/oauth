@@ -79,14 +79,14 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 			pars[k] = v
 		}
 	}
-	oauthSignature, err := url.QueryUnescape(pars["oauth_signature"])
+	oauthSignature, err := url.QueryUnescape(pars[SIGNATURE_PARAM])
 	if err != nil {
 		return nil, err
 	}
-	delete(pars, "oauth_signature")
+	delete(pars, SIGNATURE_PARAM)
 
 	// Check the timestamp
-	oauthTimeNumber, err := strconv.Atoi(pars["oauth_timestamp"])
+	oauthTimeNumber, err := strconv.Atoi(pars[TIMESTAMP_PARAM])
 	if err != nil {
 		return nil, err
 	}
