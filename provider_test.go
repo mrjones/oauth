@@ -23,8 +23,8 @@ func TestProviderIsAuthorizedGood(t *testing.T) {
 
 	authorized, err := p.IsAuthorized(fakeRequest)
 
-	assertEq(t, err, nil)
-	assertEq(t, *authorized, "consumerkey")
+	assertEq(t, nil, err)
+	assertEq(t, "consumerkey", *authorized)
 }
 
 func TestConsumerKeyWithEqualsInIt(t *testing.T) {
@@ -45,6 +45,6 @@ func TestConsumerKeyWithEqualsInIt(t *testing.T) {
 
 	authorized, err := p.IsAuthorized(fakeRequest)
 
-	assertEq(t, err, nil)
-	assertEq(t, *authorized, "consumerkeywithequals=")
+	assertEq(t, nil, err)
+	assertEq(t, "consumerkeywithequals=", *authorized)
 }
