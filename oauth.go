@@ -14,7 +14,8 @@
 // service provider on behalf of the user.
 //
 // Caveats:
-//      - Currently only supports HMAC-SHA1 and RSA-SHA1 signatures.
+//      - Currently only supports HMAC and RSA signatures.
+//      - Currently only supports SHA1 and SHA256 hashes.
 //      - Currently only supports OAuth 1.0
 //
 // Overview of how to use this library:
@@ -57,9 +58,9 @@ import (
 )
 
 const (
-	OAUTH_VERSION              = "1.0"
-	SIGNATURE_METHOD_HMAC_SHA1 = "HMAC-SHA1"
-	SIGNATURE_METHOD_RSA_SHA1  = "RSA-SHA1"
+	OAUTH_VERSION         = "1.0"
+	SIGNATURE_METHOD_HMAC = "HMAC-"
+	SIGNATURE_METHOD_RSA  = "RSA-"
 
 	OAUTH_HEADER           = "OAuth "
 	CALLBACK_PARAM         = "oauth_callback"
@@ -74,6 +75,11 @@ const (
 	VERIFIER_PARAM         = "oauth_verifier"
 	VERSION_PARAM          = "oauth_version"
 )
+
+var HASH_METHOD_MAP = map[crypto.Hash]string{
+	crypto.SHA1:   "SHA1",
+	crypto.SHA256: "SHA256",
+}
 
 // TODO(mrjones) Do we definitely want separate "Request" and "Access" token classes?
 // They're identical structurally, but used for different purposes.
@@ -207,6 +213,7 @@ func NewConsumer(consumerKey string, consumerSecret string,
 
 	consumer.signer = &HMACSigner{
 		consumerSecret: consumerSecret,
+		hashFunc:       crypto.SHA1,
 	}
 
 	return consumer
@@ -231,6 +238,36 @@ func NewCustomHttpClientConsumer(consumerKey string, consumerSecret string,
 
 	consumer.signer = &HMACSigner{
 		consumerSecret: consumerSecret,
+		hashFunc:       crypto.SHA1,
+	}
+
+	return consumer
+}
+
+// Creates a new Consumer instance, with a HMAC signer
+//      - consumerKey and consumerSecret:
+//        values you should obtain from the ServiceProvider when you register your
+//        application.
+//
+//      - hashFunc:
+//        the crypto.Hash to use for signatures
+//
+//      - serviceProvider:
+//        see the documentation for ServiceProvider for how to create this.
+//
+//      - httpClient:
+//        Provides a custom implementation of the httpClient used under the hood
+//        to make the request.  This is especially useful if you want to use
+//        Google App Engine. Can be nil for default.
+//
+func NewCustomConsumer(consumerKey string, consumerSecret string,
+	hashFunc crypto.Hash, serviceProvider ServiceProvider,
+	httpClient *http.Client) *Consumer {
+	consumer := newConsumer(consumerKey, serviceProvider, httpClient)
+
+	consumer.signer = &HMACSigner{
+		consumerSecret: consumerSecret,
+		hashFunc:       hashFunc,
 	}
 
 	return consumer
@@ -253,6 +290,40 @@ func NewRSAConsumer(consumerKey string, privateKey *rsa.PrivateKey,
 
 	consumer.signer = &RSASigner{
 		privateKey: privateKey,
+		hashFunc:   crypto.SHA1,
+		rand:       cryptoRand.Reader,
+	}
+
+	return consumer
+}
+
+// Creates a new Consumer instance, with a RSA signer
+//      - consumerKey:
+//        value you should obtain from the ServiceProvider when you register your
+//        application.
+//
+//      - privateKey:
+//        the private key to use for signatures
+//
+//      - hashFunc:
+//        the crypto.Hash to use for signatures
+//
+//      - serviceProvider:
+//        see the documentation for ServiceProvider for how to create this.
+//
+//      - httpClient:
+//        Provides a custom implementation of the httpClient used under the hood
+//        to make the request.  This is especially useful if you want to use
+//        Google App Engine. Can be nil for default.
+//
+func NewCustomRSAConsumer(consumerKey string, privateKey *rsa.PrivateKey,
+	hashFunc crypto.Hash, serviceProvider ServiceProvider,
+	httpClient *http.Client) *Consumer {
+	consumer := newConsumer(consumerKey, serviceProvider, httpClient)
+
+	consumer.signer = &RSASigner{
+		privateKey: privateKey,
+		hashFunc:   hashFunc,
 		rand:       cryptoRand.Reader,
 	}
 
@@ -792,6 +863,7 @@ type signer interface {
 	Sign(message string, tokenSecret string) (string, error)
 	Verify(message string, signature string) error
 	SignatureMethod() string
+	HashFunc() crypto.Hash
 	Debug(enabled bool)
 }
 
@@ -895,6 +967,7 @@ func parseAdditionalData(parts url.Values) map[string]string {
 
 type HMACSigner struct {
 	consumerSecret string
+	hashFunc       crypto.Hash
 	debug          bool
 }
 
@@ -909,8 +982,7 @@ func (s *HMACSigner) Sign(message string, tokenSecret string) (string, error) {
 		fmt.Println("Key:", key)
 	}
 
-	hashFunc := crypto.SHA1
-	h := hmac.New(hashFunc.New, []byte(key))
+	h := hmac.New(s.HashFunc().New, []byte(key))
 	h.Write([]byte(message))
 	rawSignature := h.Sum(nil)
 
@@ -938,13 +1010,18 @@ func (s *HMACSigner) Verify(message string, signature string) error {
 }
 
 func (s *HMACSigner) SignatureMethod() string {
-	return SIGNATURE_METHOD_HMAC_SHA1
+	return SIGNATURE_METHOD_HMAC + HASH_METHOD_MAP[s.HashFunc()]
+}
+
+func (s *HMACSigner) HashFunc() crypto.Hash {
+	return s.hashFunc
 }
 
 type RSASigner struct {
 	debug      bool
 	rand       io.Reader
 	privateKey *rsa.PrivateKey
+	hashFunc   crypto.Hash
 }
 
 func (s *RSASigner) Debug(enabled bool) {
@@ -956,12 +1033,11 @@ func (s *RSASigner) Sign(message string, tokenSecret string) (string, error) {
 		fmt.Println("Signing:", message)
 	}
 
-	hashFunc := crypto.SHA1
-	h := hashFunc.New()
+	h := s.HashFunc().New()
 	h.Write([]byte(message))
 	digest := h.Sum(nil)
 
-	signature, err := rsa.SignPKCS1v15(s.rand, s.privateKey, hashFunc, digest)
+	signature, err := rsa.SignPKCS1v15(s.rand, s.privateKey, s.HashFunc(), digest)
 	if err != nil {
 		return "", nil
 	}
@@ -980,8 +1056,7 @@ func (s *RSASigner) Verify(message string, base64signature string) error {
 		fmt.Println("Verifying Base64 signature:", base64signature)
 	}
 
-	hashFunc := crypto.SHA1
-	h := hashFunc.New()
+	h := s.HashFunc().New()
 	h.Write([]byte(message))
 	digest := h.Sum(nil)
 
@@ -990,11 +1065,15 @@ func (s *RSASigner) Verify(message string, base64signature string) error {
 		return err
 	}
 
-	return rsa.VerifyPKCS1v15(&s.privateKey.PublicKey, hashFunc, digest, signature)
+	return rsa.VerifyPKCS1v15(&s.privateKey.PublicKey, s.HashFunc(), digest, signature)
 }
 
 func (s *RSASigner) SignatureMethod() string {
-	return SIGNATURE_METHOD_RSA_SHA1
+	return SIGNATURE_METHOD_RSA + HASH_METHOD_MAP[s.HashFunc()]
+}
+
+func (s *RSASigner) HashFunc() crypto.Hash {
+	return s.hashFunc
 }
 
 func escape(s string) string {

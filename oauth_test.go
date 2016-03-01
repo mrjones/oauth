@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"crypto"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -1174,5 +1175,9 @@ func (m *MockSigner) Verify(message string, signature string) error {
 func (m *MockSigner) Debug(enabled bool) {}
 
 func (m *MockSigner) SignatureMethod() string {
-	return SIGNATURE_METHOD_HMAC_SHA1
+	return SIGNATURE_METHOD_HMAC + HASH_METHOD_MAP[m.HashFunc()]
+}
+
+func (m *MockSigner) HashFunc() crypto.Hash {
+	return crypto.SHA1
 }
