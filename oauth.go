@@ -205,7 +205,7 @@ func NewConsumer(consumerKey string, consumerSecret string,
 	serviceProvider ServiceProvider) *Consumer {
 	consumer := newConsumer(consumerKey, serviceProvider, nil)
 
-	consumer.signer = &SHA1Signer{
+	consumer.signer = &HMACSigner{
 		consumerSecret: consumerSecret,
 	}
 
@@ -229,7 +229,7 @@ func NewCustomHttpClientConsumer(consumerKey string, consumerSecret string,
 	serviceProvider ServiceProvider, httpClient *http.Client) *Consumer {
 	consumer := newConsumer(consumerKey, serviceProvider, httpClient)
 
-	consumer.signer = &SHA1Signer{
+	consumer.signer = &HMACSigner{
 		consumerSecret: consumerSecret,
 	}
 
@@ -893,16 +893,16 @@ func parseAdditionalData(parts url.Values) map[string]string {
 	return params
 }
 
-type SHA1Signer struct {
+type HMACSigner struct {
 	consumerSecret string
 	debug          bool
 }
 
-func (s *SHA1Signer) Debug(enabled bool) {
+func (s *HMACSigner) Debug(enabled bool) {
 	s.debug = enabled
 }
 
-func (s *SHA1Signer) Sign(message string, tokenSecret string) (string, error) {
+func (s *HMACSigner) Sign(message string, tokenSecret string) (string, error) {
 	key := escape(s.consumerSecret) + "&" + escape(tokenSecret)
 	if s.debug {
 		fmt.Println("Signing:", message)
@@ -921,7 +921,7 @@ func (s *SHA1Signer) Sign(message string, tokenSecret string) (string, error) {
 	return base64signature, nil
 }
 
-func (s *SHA1Signer) Verify(message string, signature string) error {
+func (s *HMACSigner) Verify(message string, signature string) error {
 	if s.debug {
 		fmt.Println("Verifying Base64 signature:", signature)
 	}
@@ -937,7 +937,7 @@ func (s *SHA1Signer) Verify(message string, signature string) error {
 	return nil
 }
 
-func (s *SHA1Signer) SignatureMethod() string {
+func (s *HMACSigner) SignatureMethod() string {
 	return SIGNATURE_METHOD_HMAC_SHA1
 }
 
