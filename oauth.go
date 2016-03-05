@@ -14,7 +14,8 @@
 // service provider on behalf of the user.
 //
 // Caveats:
-//      - Currently only supports HMAC-SHA1 and RSA-SHA1 signatures.
+//      - Currently only supports HMAC and RSA signatures.
+//      - Currently only supports SHA1 and SHA256 hashes.
 //      - Currently only supports OAuth 1.0
 //
 // Overview of how to use this library:
@@ -41,7 +42,6 @@ import (
 	"crypto/hmac"
 	cryptoRand "crypto/rand"
 	"crypto/rsa"
-	"crypto/sha1"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -58,11 +58,13 @@ import (
 )
 
 const (
-	OAUTH_VERSION              = "1.0"
-	SIGNATURE_METHOD_HMAC_SHA1 = "HMAC-SHA1"
-	SIGNATURE_METHOD_RSA_SHA1  = "RSA-SHA1"
+	OAUTH_VERSION         = "1.0"
+	SIGNATURE_METHOD_HMAC = "HMAC-"
+	SIGNATURE_METHOD_RSA  = "RSA-"
 
+	HTTP_AUTH_HEADER       = "Authorization"
 	OAUTH_HEADER           = "OAuth "
+	BODY_HASH_PARAM        = "oauth_body_hash"
 	CALLBACK_PARAM         = "oauth_callback"
 	CONSUMER_KEY_PARAM     = "oauth_consumer_key"
 	NONCE_PARAM            = "oauth_nonce"
@@ -75,6 +77,11 @@ const (
 	VERIFIER_PARAM         = "oauth_verifier"
 	VERSION_PARAM          = "oauth_version"
 )
+
+var HASH_METHOD_MAP = map[crypto.Hash]string{
+	crypto.SHA1:   "SHA1",
+	crypto.SHA256: "SHA256",
+}
 
 // TODO(mrjones) Do we definitely want separate "Request" and "Access" token classes?
 // They're identical structurally, but used for different purposes.
@@ -127,6 +134,7 @@ type ServiceProvider struct {
 	AuthorizeTokenUrl string
 	AccessTokenUrl    string
 	HttpMethod        string
+	BodyHash          bool
 }
 
 func (sp *ServiceProvider) httpMethod() string {
@@ -206,8 +214,9 @@ func NewConsumer(consumerKey string, consumerSecret string,
 	serviceProvider ServiceProvider) *Consumer {
 	consumer := newConsumer(consumerKey, serviceProvider, nil)
 
-	consumer.signer = &SHA1Signer{
+	consumer.signer = &HMACSigner{
 		consumerSecret: consumerSecret,
+		hashFunc:       crypto.SHA1,
 	}
 
 	return consumer
@@ -230,8 +239,38 @@ func NewCustomHttpClientConsumer(consumerKey string, consumerSecret string,
 	serviceProvider ServiceProvider, httpClient *http.Client) *Consumer {
 	consumer := newConsumer(consumerKey, serviceProvider, httpClient)
 
-	consumer.signer = &SHA1Signer{
+	consumer.signer = &HMACSigner{
 		consumerSecret: consumerSecret,
+		hashFunc:       crypto.SHA1,
+	}
+
+	return consumer
+}
+
+// Creates a new Consumer instance, with a HMAC signer
+//      - consumerKey and consumerSecret:
+//        values you should obtain from the ServiceProvider when you register your
+//        application.
+//
+//      - hashFunc:
+//        the crypto.Hash to use for signatures
+//
+//      - serviceProvider:
+//        see the documentation for ServiceProvider for how to create this.
+//
+//      - httpClient:
+//        Provides a custom implementation of the httpClient used under the hood
+//        to make the request.  This is especially useful if you want to use
+//        Google App Engine. Can be nil for default.
+//
+func NewCustomConsumer(consumerKey string, consumerSecret string,
+	hashFunc crypto.Hash, serviceProvider ServiceProvider,
+	httpClient *http.Client) *Consumer {
+	consumer := newConsumer(consumerKey, serviceProvider, httpClient)
+
+	consumer.signer = &HMACSigner{
+		consumerSecret: consumerSecret,
+		hashFunc:       hashFunc,
 	}
 
 	return consumer
@@ -254,6 +293,40 @@ func NewRSAConsumer(consumerKey string, privateKey *rsa.PrivateKey,
 
 	consumer.signer = &RSASigner{
 		privateKey: privateKey,
+		hashFunc:   crypto.SHA1,
+		rand:       cryptoRand.Reader,
+	}
+
+	return consumer
+}
+
+// Creates a new Consumer instance, with a RSA signer
+//      - consumerKey:
+//        value you should obtain from the ServiceProvider when you register your
+//        application.
+//
+//      - privateKey:
+//        the private key to use for signatures
+//
+//      - hashFunc:
+//        the crypto.Hash to use for signatures
+//
+//      - serviceProvider:
+//        see the documentation for ServiceProvider for how to create this.
+//
+//      - httpClient:
+//        Provides a custom implementation of the httpClient used under the hood
+//        to make the request.  This is especially useful if you want to use
+//        Google App Engine. Can be nil for default.
+//
+func NewCustomRSAConsumer(consumerKey string, privateKey *rsa.PrivateKey,
+	hashFunc crypto.Hash, serviceProvider ServiceProvider,
+	httpClient *http.Client) *Consumer {
+	consumer := newConsumer(consumerKey, serviceProvider, httpClient)
+
+	consumer.signer = &RSASigner{
+		privateKey: privateKey,
+		hashFunc:   hashFunc,
 		rand:       cryptoRand.Reader,
 	}
 
@@ -651,29 +724,14 @@ func canonicalizeUrl(u *url.URL) string {
 	return buf.String()
 }
 
-func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, error) {
-	serverRequest := clone(userRequest)
-
-	allParams := rt.consumer.baseParams(
-		rt.consumer.consumerKey, rt.consumer.AdditionalParams)
-
-	// Do not add the "oauth_token" parameter, if the access token has not been
-	// specified. By omitting this parameter when it is not specified, allows
-	// two-legged OAuth calls.
-	if len(rt.token.Token) > 0 {
-		allParams.Add(TOKEN_PARAM, rt.token.Token)
-	}
-	authParams := allParams.Clone()
-
-	// TODO(mrjones): put these directly into the paramPairs below?
+func parseBody(request *http.Request) (pairs, error) {
 	userParams := map[string]string{}
 
-	originalBody := []byte{}
 	// TODO(mrjones): factor parameter extraction into a separate method
-	if userRequest.Header.Get("Content-Type") !=
+	if request.Header.Get("Content-Type") !=
 		"application/x-www-form-urlencoded" {
 		// Most of the time we get parameters from the query string:
-		for k, vs := range userRequest.URL.Query() {
+		for k, vs := range request.URL.Query() {
 			if len(vs) != 1 {
 				return nil, fmt.Errorf("Must have exactly one value per param")
 			}
@@ -682,12 +740,15 @@ func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, er
 		}
 	} else {
 		// x-www-form-urlencoded parameters come from the body instead:
-		var err error
-		defer userRequest.Body.Close()
-		originalBody, err = ioutil.ReadAll(userRequest.Body)
+		defer request.Body.Close()
+		originalBody, err := ioutil.ReadAll(request.Body)
 		if err != nil {
 			return nil, err
 		}
+
+		// If there was a body, we have to re-install it
+		// (because we've ruined it by reading it).
+		request.Body = ioutil.NopCloser(bytes.NewReader(originalBody))
 
 		params, err := url.ParseQuery(string(originalBody))
 		if err != nil {
@@ -712,19 +773,72 @@ func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, er
 	}
 	sort.Sort(paramPairs)
 
-	separator := ""
-	encodedUserParams := ""
-	for i := range paramPairs {
-		allParams.Add(paramPairs[i].key, paramPairs[i].value)
-		thisPair := escape(paramPairs[i].key) + "=" + escape(paramPairs[i].value)
-		encodedUserParams += separator + thisPair
-		separator = "&"
+	return paramPairs, nil
+}
+
+func calculateBodyHash(request *http.Request, s signer) (string, error) {
+	if request.Header.Get("Content-Type") ==
+		"application/x-www-form-urlencoded" {
+		return "", nil
 	}
 
-	if len(originalBody) > 0 {
+	var originalBody []byte
+
+	if request.Body != nil {
+		var err error
+
+		defer request.Body.Close()
+		originalBody, err = ioutil.ReadAll(request.Body)
+		if err != nil {
+			return "", err
+		}
+
 		// If there was a body, we have to re-install it
 		// (because we've ruined it by reading it).
-		serverRequest.Body = ioutil.NopCloser(strings.NewReader(string(originalBody)))
+		request.Body = ioutil.NopCloser(bytes.NewReader(originalBody))
+	}
+
+	h := s.HashFunc().New()
+	h.Write(originalBody)
+	rawSignature := h.Sum(nil)
+
+	return base64.StdEncoding.EncodeToString(rawSignature), nil
+}
+
+func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, error) {
+	serverRequest := clone(userRequest)
+
+	allParams := rt.consumer.baseParams(
+		rt.consumer.consumerKey, rt.consumer.AdditionalParams)
+
+	// Do not add the "oauth_token" parameter, if the access token has not been
+	// specified. By omitting this parameter when it is not specified, allows
+	// two-legged OAuth calls.
+	if len(rt.token.Token) > 0 {
+		allParams.Add(TOKEN_PARAM, rt.token.Token)
+	}
+
+	if rt.consumer.serviceProvider.BodyHash {
+		bodyHash, err := calculateBodyHash(serverRequest, rt.consumer.signer)
+		if err != nil {
+			return nil, err
+		}
+
+		if bodyHash != "" {
+			allParams.Add(BODY_HASH_PARAM, bodyHash)
+		}
+	}
+
+	authParams := allParams.Clone()
+
+	// TODO(mrjones): put these directly into the paramPairs below?
+	userParams, err := parseBody(serverRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range userParams {
+		allParams.Add(userParams[i].key, userParams[i].value)
 	}
 
 	baseString := rt.consumer.requestString(userRequest.Method, canonicalizeUrl(userRequest.URL), allParams)
@@ -746,7 +860,7 @@ func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, er
 			oauthHdr += key + "=\"" + value + "\""
 		}
 	}
-	serverRequest.Header.Add("Authorization", oauthHdr)
+	serverRequest.Header.Add(HTTP_AUTH_HEADER, oauthHdr)
 
 	if rt.consumer.debug {
 		fmt.Printf("Request: %v\n", serverRequest)
@@ -793,6 +907,7 @@ type signer interface {
 	Sign(message string, tokenSecret string) (string, error)
 	Verify(message string, signature string) error
 	SignatureMethod() string
+	HashFunc() crypto.Hash
 	Debug(enabled bool)
 }
 
@@ -894,24 +1009,27 @@ func parseAdditionalData(parts url.Values) map[string]string {
 	return params
 }
 
-type SHA1Signer struct {
+type HMACSigner struct {
 	consumerSecret string
+	hashFunc       crypto.Hash
 	debug          bool
 }
 
-func (s *SHA1Signer) Debug(enabled bool) {
+func (s *HMACSigner) Debug(enabled bool) {
 	s.debug = enabled
 }
 
-func (s *SHA1Signer) Sign(message string, tokenSecret string) (string, error) {
+func (s *HMACSigner) Sign(message string, tokenSecret string) (string, error) {
 	key := escape(s.consumerSecret) + "&" + escape(tokenSecret)
 	if s.debug {
 		fmt.Println("Signing:", message)
 		fmt.Println("Key:", key)
 	}
-	hashfun := hmac.New(sha1.New, []byte(key))
-	hashfun.Write([]byte(message))
-	rawSignature := hashfun.Sum(nil)
+
+	h := hmac.New(s.HashFunc().New, []byte(key))
+	h.Write([]byte(message))
+	rawSignature := h.Sum(nil)
+
 	base64signature := base64.StdEncoding.EncodeToString(rawSignature)
 	if s.debug {
 		fmt.Println("Base64 signature:", base64signature)
@@ -919,7 +1037,7 @@ func (s *SHA1Signer) Sign(message string, tokenSecret string) (string, error) {
 	return base64signature, nil
 }
 
-func (s *SHA1Signer) Verify(message string, signature string) error {
+func (s *HMACSigner) Verify(message string, signature string) error {
 	if s.debug {
 		fmt.Println("Verifying Base64 signature:", signature)
 	}
@@ -935,14 +1053,19 @@ func (s *SHA1Signer) Verify(message string, signature string) error {
 	return nil
 }
 
-func (s *SHA1Signer) SignatureMethod() string {
-	return SIGNATURE_METHOD_HMAC_SHA1
+func (s *HMACSigner) SignatureMethod() string {
+	return SIGNATURE_METHOD_HMAC + HASH_METHOD_MAP[s.HashFunc()]
+}
+
+func (s *HMACSigner) HashFunc() crypto.Hash {
+	return s.hashFunc
 }
 
 type RSASigner struct {
 	debug      bool
 	rand       io.Reader
 	privateKey *rsa.PrivateKey
+	hashFunc   crypto.Hash
 }
 
 func (s *RSASigner) Debug(enabled bool) {
@@ -954,12 +1077,11 @@ func (s *RSASigner) Sign(message string, tokenSecret string) (string, error) {
 		fmt.Println("Signing:", message)
 	}
 
-	hashFunc := crypto.SHA1
-	h := hashFunc.New()
+	h := s.HashFunc().New()
 	h.Write([]byte(message))
 	digest := h.Sum(nil)
 
-	signature, err := rsa.SignPKCS1v15(s.rand, s.privateKey, hashFunc, digest)
+	signature, err := rsa.SignPKCS1v15(s.rand, s.privateKey, s.HashFunc(), digest)
 	if err != nil {
 		return "", nil
 	}
@@ -978,8 +1100,7 @@ func (s *RSASigner) Verify(message string, base64signature string) error {
 		fmt.Println("Verifying Base64 signature:", base64signature)
 	}
 
-	hashFunc := crypto.SHA1
-	h := hashFunc.New()
+	h := s.HashFunc().New()
 	h.Write([]byte(message))
 	digest := h.Sum(nil)
 
@@ -988,11 +1109,15 @@ func (s *RSASigner) Verify(message string, base64signature string) error {
 		return err
 	}
 
-	return rsa.VerifyPKCS1v15(&s.privateKey.PublicKey, hashFunc, digest, signature)
+	return rsa.VerifyPKCS1v15(&s.privateKey.PublicKey, s.HashFunc(), digest, signature)
 }
 
 func (s *RSASigner) SignatureMethod() string {
-	return SIGNATURE_METHOD_RSA_SHA1
+	return SIGNATURE_METHOD_RSA + HASH_METHOD_MAP[s.HashFunc()]
+}
+
+func (s *RSASigner) HashFunc() crypto.Hash {
+	return s.hashFunc
 }
 
 func escape(s string) string {

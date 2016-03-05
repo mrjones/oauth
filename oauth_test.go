@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"crypto"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -955,6 +956,36 @@ func TestSemicolonInParameters_NewApi(t *testing.T) {
 	assertEq(t, "BODY:SUCCESS", string(body))
 }
 
+func TestBodyHashStandard(t *testing.T) {
+	m := newMocks(t)
+
+	req, err := http.NewRequest("POST", "http://www.mrjon.es/someurl", strings.NewReader(`foo=123`))
+	assertEq(t, nil, err)
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	hash, err := calculateBodyHash(req, m.signer)
+	assertEq(t, nil, err)
+	assertEq(t, "", hash)
+
+	req, err = http.NewRequest("GET", "http://www.mrjon.es/someurl?foo=123", nil)
+	assertEq(t, nil, err)
+	hash, err = calculateBodyHash(req, m.signer)
+	assertEq(t, nil, err)
+	assertEq(t, "2jmj7l5rSw0yVb/vlWAYkK/YBwk=", hash)
+
+	req, err = http.NewRequest("GET", "http://www.mrjon.es/someurl?foo=123", strings.NewReader(""))
+	assertEq(t, nil, err)
+	hash, err = calculateBodyHash(req, m.signer)
+	assertEq(t, nil, err)
+	assertEq(t, "2jmj7l5rSw0yVb/vlWAYkK/YBwk=", hash)
+
+	req, err = http.NewRequest("GET", "http://www.mrjon.es/someurl?foo=123", strings.NewReader("Hello World!"))
+	assertEq(t, nil, err)
+	hash, err = calculateBodyHash(req, m.signer)
+	assertEq(t, nil, err)
+	assertEq(t, "Lve95gjOVATpfV8EL5X4nxwjKHE=", hash)
+
+}
+
 func basicConsumer() *Consumer {
 	return NewConsumer(
 		"consumerkey",
@@ -1020,7 +1051,7 @@ func (mock *MockHttpClient) Do(req *http.Request) (*http.Response, error) {
 		if req.Header == nil {
 			mock.t.Fatal("Missing 'Authorization' header.")
 		}
-		mock.oAuthChecker.CheckHeader(req.Header.Get("Authorization"))
+		mock.oAuthChecker.CheckHeader(req.Header.Get(HTTP_AUTH_HEADER))
 	}
 
 	if len(mock.expectedHeaders) > 0 {
@@ -1174,5 +1205,9 @@ func (m *MockSigner) Verify(message string, signature string) error {
 func (m *MockSigner) Debug(enabled bool) {}
 
 func (m *MockSigner) SignatureMethod() string {
-	return SIGNATURE_METHOD_HMAC_SHA1
+	return SIGNATURE_METHOD_HMAC + HASH_METHOD_MAP[m.HashFunc()]
+}
+
+func (m *MockSigner) HashFunc() crypto.Hash {
+	return crypto.SHA1
 }
