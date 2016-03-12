@@ -1,7 +1,10 @@
 package oauth
 
 import (
+	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strings"
 	"testing"
 )
 
@@ -27,10 +30,71 @@ func TestProviderIsAuthorizedGood(t *testing.T) {
 	assertEq(t, "consumerkey", *authorized)
 }
 
+func TestProviderIsAuthorizedOauthParamsInBody(t *testing.T) {
+	p := NewProvider(func(s string, h map[string]string) (*Consumer, error) {
+		c := NewConsumer(s, "consumersecret", ServiceProvider{})
+		c.signer = &MockSigner{}
+		return c, nil
+	})
+	p.clock = &MockClock{Time: 1446226936}
+
+	fakeRequest, err := http.NewRequest("GET", "https://example.com/some/path?q=query&q1=another_query", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Put good oauth params into the request body
+	form := url.Values{}
+	form.Set("oauth_consumer_key", "consumerkey")
+	form.Set("oauth_nonce", "799507437267152061446226936")
+	form.Set("oauth_signature", "MOCK_SIGNATURE")
+	form.Set("oauth_signature_method", "HMAC-SHA1")
+	form.Set("oauth_timestamp", "1446226936")
+	form.Set("oauth_version", "1.0")
+	encodedForm := form.Encode()
+	fakeRequest.Body = ioutil.NopCloser(strings.NewReader(encodedForm))
+	fakeRequest.ContentLength = int64(len(encodedForm))
+	fakeRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	authorized, err := p.IsAuthorized(fakeRequest)
+
+	assertEq(t, nil, err)
+	assertEq(t, "consumerkey", *authorized)
+}
+
+func TestProviderIsAuthorizedOauthParamsInQuery(t *testing.T) {
+	p := NewProvider(func(s string, h map[string]string) (*Consumer, error) {
+		c := NewConsumer(s, "consumersecret", ServiceProvider{})
+		c.signer = &MockSigner{}
+		return c, nil
+	})
+	p.clock = &MockClock{Time: 1446226936}
+
+	// Put good oauth params into the query string
+	oauthParams := url.Values{}
+	oauthParams.Set("oauth_consumer_key", "consumerkey")
+	oauthParams.Set("oauth_nonce", "799507437267152061446226936")
+	oauthParams.Set("oauth_signature", "MOCK_SIGNATURE")
+	oauthParams.Set("oauth_signature_method", "HMAC-SHA1")
+	oauthParams.Set("oauth_timestamp", "1446226936")
+	oauthParams.Set("oauth_version", "1.0")
+	encodedOauthParams := oauthParams.Encode()
+	url :=  "https://example.com/some/path?q=query&q1=another_query&" + encodedOauthParams
+
+	fakeRequest, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	authorized, err := p.IsAuthorized(fakeRequest)
+
+	assertEq(t, nil, err)
+	assertEq(t, "consumerkey", *authorized)
+}
+
 func TestProviderIsAuthorizedWithBodyHash(t *testing.T) {
 	p := NewProvider(func(s string, h map[string]string) (*Consumer, error) {
 		c := NewConsumer(s, "consumersecret", ServiceProvider{BodyHash: true})
-		c.Debug(true)
 		return c, nil
 	})
 	p.clock = &MockClock{Time: 1446226936}
