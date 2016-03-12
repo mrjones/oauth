@@ -746,7 +746,7 @@ func canonicalizeUrl(u *url.URL) string {
 	return buf.String()
 }
 
-func parseBody(request *http.Request) (pairs, error) {
+func parseBody(request *http.Request) (map[string]string, error) {
 	userParams := map[string]string{}
 
 	// TODO(mrjones): factor parameter extraction into a separate method
@@ -786,16 +786,20 @@ func parseBody(request *http.Request) (pairs, error) {
 		}
 	}
 
+	return userParams, nil
+}
+
+func paramsToSortedPairs(params map[string]string) pairs {
 	// Sort parameters alphabetically
-	paramPairs := make(pairs, len(userParams))
+	paramPairs := make(pairs, len(params))
 	i := 0
-	for key, value := range userParams {
+	for key, value := range params {
 		paramPairs[i] = pair{key: key, value: value}
 		i++
 	}
 	sort.Sort(paramPairs)
 
-	return paramPairs, nil
+	return paramPairs
 }
 
 func calculateBodyHash(request *http.Request, s signer) (string, error) {
@@ -858,9 +862,10 @@ func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, er
 	if err != nil {
 		return nil, err
 	}
+	paramPairs := paramsToSortedPairs(userParams)
 
-	for i := range userParams {
-		allParams.Add(userParams[i].key, userParams[i].value)
+	for i := range paramPairs {
+		allParams.Add(paramPairs[i].key, paramPairs[i].value)
 	}
 
 	baseString := rt.consumer.requestString(userRequest.Method, canonicalizeUrl(userRequest.URL), allParams)
