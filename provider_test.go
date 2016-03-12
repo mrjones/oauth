@@ -79,7 +79,7 @@ func TestProviderIsAuthorizedOauthParamsInQuery(t *testing.T) {
 	oauthParams.Set("oauth_timestamp", "1446226936")
 	oauthParams.Set("oauth_version", "1.0")
 	encodedOauthParams := oauthParams.Encode()
-	url :=  "https://example.com/some/path?q=query&q1=another_query&" + encodedOauthParams
+	url := "https://example.com/some/path?q=query&q1=another_query&" + encodedOauthParams
 
 	fakeRequest, err := http.NewRequest("GET", url, nil)
 	if err != nil {
