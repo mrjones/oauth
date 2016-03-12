@@ -54,6 +54,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -145,6 +146,26 @@ func (sp *ServiceProvider) httpMethod() string {
 	return "GET"
 }
 
+// lockedNonceGenerator wraps a non-reentrant random number generator with a
+// lock
+type lockedNonceGenerator struct {
+	nonceGenerator nonceGenerator
+	lock           sync.Mutex
+}
+
+func newLockedNonceGenerator(c clock) *lockedNonceGenerator {
+	return &lockedNonceGenerator{
+		nonceGenerator: rand.New(rand.NewSource(c.Nanos())),
+	}
+}
+
+func (n *lockedNonceGenerator) Int63() int64 {
+	n.lock.Lock()
+	r := n.nonceGenerator.Int63()
+	n.lock.Unlock()
+	return r
+}
+
 // Consumers are stateless, you can call the various methods (GetRequestTokenAndUrl,
 // AuthorizeToken, and Get) on various different instances of Consumers *as long as
 // they were set up in the same way.* It is up to you, as the caller to persist the
@@ -180,8 +201,9 @@ type Consumer struct {
 	AdditionalHeaders map[string][]string
 
 	// Private seams for mocking dependencies when testing
-	clock          clock
-	nonceGenerator nonceGenerator
+	clock clock
+	// Seeded generators are not reentrant
+	nonceGenerator *lockedNonceGenerator
 	signer         signer
 }
 
@@ -195,7 +217,7 @@ func newConsumer(consumerKey string, serviceProvider ServiceProvider, httpClient
 		serviceProvider: serviceProvider,
 		clock:           clock,
 		HttpClient:      httpClient,
-		nonceGenerator:  rand.New(rand.NewSource(clock.Nanos())),
+		nonceGenerator:  newLockedNonceGenerator(clock),
 
 		AdditionalParams:                 make(map[string]string),
 		AdditionalAuthorizationUrlParams: make(map[string]string),
