@@ -59,9 +59,10 @@ func makeURLAbs(url *url.URL, request *http.Request) {
 // or nil if not authorized
 func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 	var err error
+	var userParams map[string]string
 
 	// start with the body/query params
-	userParams, err := parseBody(request)
+	userParams, err = parseBody(request)
 	if err != nil {
 		return nil, err
 	}
@@ -69,8 +70,8 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 	// if the oauth params are in the Authorization header, grab them, and
 	// let them override what's in userParams
 	authHeader := request.Header.Get(HTTP_AUTH_HEADER)
-	if len(authHeader) > 5 && strings.EqualFold(OAUTH_HEADER, authHeader[0:5]) {
-		authHeader = authHeader[5:]
+	if len(authHeader) > 6 && strings.EqualFold(OAUTH_HEADER, authHeader[0:6]) {
+		authHeader = authHeader[6:]
 		params := strings.Split(authHeader, ",")
 		for _, param := range params {
 			vals := strings.SplitN(param, "=", 2)
@@ -113,8 +114,6 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO: dev testing.  remove me
-	consumer.Debug(true)
 
 	// if our consumer supports bodyhash, check it
 	if consumer.serviceProvider.BodyHash {
