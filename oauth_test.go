@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -34,6 +35,59 @@ func (m *Mocks) install(c *Consumer) {
 	c.clock = m.clock
 	c.nonceGenerator = m.nonceGenerator
 	c.signer = m.signer
+}
+
+func TestCloneReq(t *testing.T) {
+	originalHeaders := http.Header{
+		"KeyA": []string{"ValueA", "ValueB"},
+		"KeyB": []string{"ValueB"},
+	}
+	originalURL, err := url.Parse("http://hostname.com/path")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	original := &http.Request{
+		Header: originalHeaders,
+		URL:    originalURL,
+	}
+
+	clone := cloneReq(original)
+
+	if !reflect.DeepEqual(original.Header, clone.Header) {
+		t.Fatalf("cloneReq did not correctly deep copy Header")
+	}
+
+	// If I delete something from the original they should no longer be equal
+	delete(originalHeaders, "KeyA")
+	if reflect.DeepEqual(original.Header, clone.Header) {
+		t.Fatalf("cloneReq should deep copy the Header")
+	}
+
+	if original.URL == clone.URL {
+		t.Fatalf("cloneReq should deep copy the URL")
+	}
+
+	if !reflect.DeepEqual(original.URL, clone.URL) {
+		t.Fatalf("cloneReq did not correctly deep copy the URL")
+	}
+}
+
+func TestCloneURL(t *testing.T) {
+	originalURL, err := url.Parse("http://hostname.com/path")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	clone := cloneURL(originalURL)
+
+	if originalURL == clone {
+		t.Fatalf("cloneReq should deep copy the URL")
+	}
+
+	if !reflect.DeepEqual(originalURL, clone) {
+		t.Fatalf("clone is not deeply equal to the originalURL")
+	}
 }
 
 func TestSuccessfulTokenRequest(t *testing.T) {
