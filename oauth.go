@@ -203,7 +203,7 @@ type Consumer struct {
 	// Private seams for mocking dependencies when testing
 	clock clock
 	// Seeded generators are not reentrant
-	nonceGenerator *lockedNonceGenerator
+	nonceGenerator nonceGenerator
 	signer         signer
 }
 
