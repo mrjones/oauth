@@ -724,7 +724,9 @@ func (c *Consumer) makeAuthorizedRequestReader(method string, urlString string, 
 	return resp, nil
 }
 
-func clone(src *http.Request) *http.Request {
+// cloneReq clones the src http.Request, making deep copies of the Header and
+// the URL but shallow copies of everything else
+func cloneReq(src *http.Request) *http.Request {
 	dst := &http.Request{}
 	*dst = *src
 
@@ -732,6 +734,18 @@ func clone(src *http.Request) *http.Request {
 	for k, s := range src.Header {
 		dst.Header[k] = append([]string(nil), s...)
 	}
+
+	if src.URL != nil {
+		dst.URL = cloneURL(src.URL)
+	}
+
+	return dst
+}
+
+// cloneURL shallow clones the src *url.URL
+func cloneURL(src *url.URL) *url.URL {
+	dst := &url.URL{}
+	*dst = *src
 
 	return dst
 }
@@ -832,7 +846,7 @@ func calculateBodyHash(request *http.Request, s signer) (string, error) {
 }
 
 func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, error) {
-	serverRequest := clone(userRequest)
+	serverRequest := cloneReq(userRequest)
 
 	allParams := rt.consumer.baseParams(
 		rt.consumer.consumerKey, rt.consumer.AdditionalParams)
@@ -868,7 +882,11 @@ func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, er
 		allParams.Add(paramPairs[i].key, paramPairs[i].value)
 	}
 
-	baseString := rt.consumer.requestString(userRequest.Method, canonicalizeUrl(userRequest.URL), allParams)
+	signingURL := cloneURL(serverRequest.URL)
+	if host := serverRequest.Host; host != "" {
+		signingURL.Host = host
+	}
+	baseString := rt.consumer.requestString(serverRequest.Method, canonicalizeUrl(signingURL), allParams)
 
 	signature, err := rt.consumer.signer.Sign(baseString, rt.token.Secret)
 	if err != nil {
