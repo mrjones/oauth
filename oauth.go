@@ -382,7 +382,11 @@ func NewCustomRSAConsumer(consumerKey string, privateKey *rsa.PrivateKey,
 //      - err:
 //        Set only if there was an error, nil otherwise.
 func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestToken, loginUrl string, err error) {
-	params := c.baseParams(c.consumerKey, c.AdditionalParams)
+	return c.GetRequestTokenAndUrlWithParams(callbackUrl, c.AdditionalParams)
+}
+
+func (c *Consumer) GetRequestTokenAndUrlWithParams(callbackUrl string, additionalParams map[string]string) (rtoken *RequestToken, loginUrl string, err error) {
+	params := c.baseParams(c.consumerKey, additionalParams)
 	if callbackUrl != "" {
 		params.Add(CALLBACK_PARAM, callbackUrl)
 	}
@@ -435,12 +439,15 @@ func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestTok
 //      - err:
 //        Set only if there was an error, nil otherwise.
 func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string) (atoken *AccessToken, err error) {
+	return c.AuthorizeTokenWithParams(rtoken, verificationCode, c.AdditionalParams)
+}
+
+func (c *Consumer) AuthorizeTokenWithParams(rtoken *RequestToken, verificationCode string, additionalParams map[string]string) (atoken *AccessToken, err error) {
 	params := map[string]string{
 		VERIFIER_PARAM: verificationCode,
 		TOKEN_PARAM:    rtoken.Token,
 	}
-
-	return c.makeAccessTokenRequest(params, rtoken.Secret)
+	return c.makeAccessTokenRequestWithParams(params, rtoken.Secret, additionalParams)
 }
 
 // Use the service provider to refresh the AccessToken for a given session.
@@ -490,7 +497,11 @@ func (c *Consumer) RefreshToken(accessToken *AccessToken) (atoken *AccessToken, 
 //      - err:
 //        Set only if there was an error, nil otherwise.
 func (c *Consumer) makeAccessTokenRequest(params map[string]string, secret string) (atoken *AccessToken, err error) {
-	orderedParams := c.baseParams(c.consumerKey, c.AdditionalParams)
+	return c.makeAccessTokenRequestWithParams(params, secret, c.AdditionalParams)
+}
+
+func (c *Consumer) makeAccessTokenRequestWithParams(params map[string]string, secret string, additionalParams map[string]string) (atoken *AccessToken, err error) {
+	orderedParams := c.baseParams(c.consumerKey, additionalParams)
 	for key, value := range params {
 		orderedParams.Add(key, value)
 	}
