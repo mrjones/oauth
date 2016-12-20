@@ -106,6 +106,12 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 		return nil, err
 	}
 
+	// Make sure timestamp is no more than 10 digits
+	timestamp := userParams[TIMESTAMP_PARAM]
+	if len(timestamp) > 10 {
+		timestamp = timestamp[0:10]
+	}
+
 	// Check the timestamp
 	if !consumer.serviceProvider.IgnoreTimestamp {
 		oauthTimeNumber, err := strconv.Atoi(timestamp)
