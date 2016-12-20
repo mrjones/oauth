@@ -94,15 +94,6 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 	}
 	delete(userParams, SIGNATURE_PARAM)
 
-	// Check the timestamp
-	oauthTimeNumber, err := strconv.Atoi(userParams[TIMESTAMP_PARAM])
-	if err != nil {
-		return nil, err
-	}
-	if math.Abs(float64(int64(oauthTimeNumber)-provider.clock.Seconds())) > 5*60 {
-		return nil, fmt.Errorf("too much clock skew")
-	}
-
 	// get the oauth consumer key
 	consumerKey, ok := userParams[CONSUMER_KEY_PARAM]
 	if !ok {
@@ -113,6 +104,18 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 	consumer, err := provider.ConsumerGetter(consumerKey, userParams)
 	if err != nil {
 		return nil, err
+	}
+
+	// Check the timestamp
+	if !consumer.serviceProvider.IgnoreTimestamp {
+		oauthTimeNumber, err := strconv.Atoi(timestamp)
+		if err != nil {
+			return nil, err
+		}
+
+		if math.Abs(float64(int64(oauthTimeNumber)-provider.clock.Seconds())) > 5*60 {
+			return nil, fmt.Errorf("too much clock skew")
+		}
 	}
 
 	// if our consumer supports bodyhash, check it

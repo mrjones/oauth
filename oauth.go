@@ -136,6 +136,7 @@ type ServiceProvider struct {
 	AccessTokenUrl    string
 	HttpMethod        string
 	BodyHash          bool
+	IgnoreTimestamp   bool
 }
 
 func (sp *ServiceProvider) httpMethod() string {
