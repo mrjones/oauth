@@ -96,7 +96,7 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 
 	// get the oauth consumer key
 	consumerKey, ok := userParams[CONSUMER_KEY_PARAM]
-	if !ok {
+	if !ok || consumerKey == "" {
 		return nil, fmt.Errorf("no consumer key")
 	}
 
