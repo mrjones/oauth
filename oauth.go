@@ -57,7 +57,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jtolds/webhelp/whcompat"
+	"gopkg.in/webhelp.v1/whcompat"
 	"golang.org/x/net/context"
 )
 
