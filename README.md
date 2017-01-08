@@ -3,6 +3,8 @@ OAuth 1.0 Library for [Go](http://golang.org)
 
 [![GoDoc](http://godoc.org/github.com/mrjones/oauth?status.png)](http://godoc.org/github.com/mrjones/oauth)
 
+[![CircleCI](https://circleci.com/gh/mrjones/oauth/tree/master.svg?style=svg)](https://circleci.com/gh/mrjones/oauth/tree/master)
+
 (If you need an OAuth 2.0 library, check out: https://godoc.org/golang.org/x/oauth2)
 
 Developing your own apps, with this library
