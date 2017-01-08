@@ -1107,7 +1107,10 @@ func (s *HMACSigner) Verify(message string, signature string) error {
 	}
 
 	if validSignature != signature {
-		return fmt.Errorf("signature did not match")
+		decodedSigniture, _ := url.QueryUnescape(signature)
+		if validSignature != decodedSigniture {
+			return fmt.Errorf("signature did not match")
+		}
 	}
 
 	return nil
