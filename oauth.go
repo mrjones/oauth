@@ -137,6 +137,7 @@ type ServiceProvider struct {
 	HttpMethod        string
 	BodyHash          bool
 	IgnoreTimestamp   bool
+	SignQueryParams   bool
 }
 
 func (sp *ServiceProvider) httpMethod() string {
