@@ -114,7 +114,7 @@ func (provider *Provider) IsAuthorized(request *http.Request) (*string, error) {
 
 	// Check the timestamp
 	if !consumer.serviceProvider.IgnoreTimestamp {
-		oauthTimeNumber, err := strconv.Atoi(timestamp)
+		oauthTimeNumber, err := strconv.Atoi(userParams[TIMESTAMP_PARAM])
 		if err != nil {
 			return nil, err
 		}
