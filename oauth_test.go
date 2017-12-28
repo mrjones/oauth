@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"context"
 	"crypto"
 	"fmt"
 	"io"
@@ -287,8 +288,9 @@ func TestSuccessfulAuthorizedGet_OldApi(t *testing.T) {
 
 	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
 
+	ctx := context.Background()
 	resp, err := c.Get(
-		"http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
+		ctx, "http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
 
 	if err != nil {
 		t.Fatal(err)
@@ -378,8 +380,9 @@ func TestSuccessfulAuthorizedGetWithAddlHdrs_OldApi(t *testing.T) {
 		"Accept": {"json"},
 	}
 
+	ctx := context.Background()
 	resp, err := c.Get(
-		"http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
+		ctx, "http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
 
 	if err != nil {
 		t.Fatal(err)
@@ -469,8 +472,9 @@ func TestSuccessfulAuthorizedPost_OldApi(t *testing.T) {
 
 	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
 
+	ctx := context.Background()
 	resp, err := c.Post(
-		"http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
+		ctx, "http://www.mrjon.es/someurl", map[string]string{"key": "val"}, token)
 
 	assertEq(t, int64(7), m.httpClient.lastRequest.ContentLength)
 
@@ -561,8 +565,9 @@ func TestSuccessfulAuthorizedJsonPost_OldApi(t *testing.T) {
 
 	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
 
+	ctx := context.Background()
 	resp, err := c.PostJson(
-		"http://www.mrjon.es/someurl", `{"key":"value"}`, token)
+		ctx, "http://www.mrjon.es/someurl", `{"key":"value"}`, token)
 
 	assertEq(t, int64(15), m.httpClient.lastRequest.ContentLength)
 
@@ -605,8 +610,9 @@ func TestSuccessfulAuthorizedXMLPost_OldApi(t *testing.T) {
 
 	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
 
+	ctx := context.Background()
 	resp, err := c.PostXML(
-		"http://www.mrjon.es/someurl", x, token)
+		ctx, "http://www.mrjon.es/someurl", x, token)
 
 	assertEq(t, int64(len(x)), m.httpClient.lastRequest.ContentLength)
 
@@ -658,8 +664,9 @@ func TestSuccessfulAuthorizedMultipartPost_OldApi(t *testing.T) {
 
 	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
 
+	ctx := context.Background()
 	resp, err := c.PostMultipart(
-		"http://www.mrjon.es/unittest", "multipartname", ioutil.NopCloser(strings.NewReader(payload)), map[string]string{}, token)
+		ctx, "http://www.mrjon.es/unittest", "multipartname", ioutil.NopCloser(strings.NewReader(payload)), map[string]string{}, token)
 
 	if err != nil {
 		t.Fatal(err)
@@ -751,7 +758,8 @@ func Test404OnGet_OldApi(t *testing.T) {
 	m.httpClient.ReturnStatusCode(404, "Not Found")
 
 	atoken := &AccessToken{Token: "ATOKEN", Secret: "ASECRET"}
-	resp, err := c.Get("URL", map[string]string{}, atoken)
+	ctx := context.Background()
+	resp, err := c.Get(ctx, "URL", map[string]string{}, atoken)
 	if err == nil {
 		t.Fatal("Should have raised an error")
 	}
@@ -840,8 +848,9 @@ func TestCharacterEscaping_NewApi(t *testing.T) {
 
 	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
 
+	ctx := context.Background()
 	resp, err := c.Get(
-		"http://www.mrjon.es/someurl", map[string]string{
+		ctx, "http://www.mrjon.es/someurl", map[string]string{
 			"nonEscapableChars": "abcABC123-._~",
 			"escapableChars":    " !@#$%^&*()+",
 		}, token)
@@ -886,8 +895,9 @@ func TestCharacterEscaping_OldApi(t *testing.T) {
 
 	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
 
+	ctx := context.Background()
 	resp, err := c.Get(
-		"http://www.mrjon.es/someurl", map[string]string{
+		ctx, "http://www.mrjon.es/someurl", map[string]string{
 			"nonEscapableChars": "abcABC123-._~",
 			"escapableChars":    " !@#$%^&*()+",
 		}, token)
@@ -917,8 +927,9 @@ func TestGetWithNilParams_OldApi(t *testing.T) {
 
 	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
 
+	ctx := context.Background()
 	resp, err := c.Get(
-		"http://www.mrjon.es/someurl", nil, token)
+		ctx, "http://www.mrjon.es/someurl", nil, token)
 
 	if err != nil {
 		t.Fatal(err)
@@ -953,8 +964,9 @@ func TestSemicolonInParameters_OldApi(t *testing.T) {
 
 	token := &AccessToken{Token: "TOKEN", Secret: "SECRET"}
 
+	ctx := context.Background()
 	resp, err := c.Get(
-		"http://www.mrjon.es/someurl", map[string]string{
+		ctx, "http://www.mrjon.es/someurl", map[string]string{
 			"foo": "1;2",
 		}, token)
 

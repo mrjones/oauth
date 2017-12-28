@@ -38,6 +38,7 @@ package oauth
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/hmac"
 	cryptoRand "crypto/rand"
@@ -142,7 +143,7 @@ type ServiceProvider struct {
 	// Allow parameters to be passed in the query string rather
 	// than the body.
 	// See https://github.com/mrjones/oauth/pull/63
-	SignQueryParams   bool
+	SignQueryParams bool
 }
 
 func (sp *ServiceProvider) httpMethod() string {
@@ -564,8 +565,8 @@ func (c *Consumer) MakeHttpClient(token *AccessToken) (*http.Client, error) {
 //
 //      - err:
 //        Set only if there was an error, nil otherwise.
-func (c *Consumer) Get(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("GET", url, LOC_URL, "", userParams, token)
+func (c *Consumer) Get(ctx context.Context, url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+	return c.makeAuthorizedRequest(ctx, "GET", url, LOC_URL, "", userParams, token)
 }
 
 func encodeUserParams(userParams map[string]string) string {
@@ -578,53 +579,53 @@ func encodeUserParams(userParams map[string]string) string {
 
 // ** DEPRECATED **
 // Please call "Post" on the http client returned by MakeHttpClient instead
-func (c *Consumer) PostForm(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.PostWithBody(url, "", userParams, token)
+func (c *Consumer) PostForm(ctx context.Context, url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+	return c.PostWithBody(ctx, url, "", userParams, token)
 }
 
 // ** DEPRECATED **
 // Please call "Post" on the http client returned by MakeHttpClient instead
-func (c *Consumer) Post(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.PostWithBody(url, "", userParams, token)
+func (c *Consumer) Post(ctx context.Context, url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+	return c.PostWithBody(ctx, url, "", userParams, token)
 }
 
 // ** DEPRECATED **
 // Please call "Post" on the http client returned by MakeHttpClient instead
-func (c *Consumer) PostWithBody(url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("POST", url, LOC_BODY, body, userParams, token)
+func (c *Consumer) PostWithBody(ctx context.Context, url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+	return c.makeAuthorizedRequest(ctx, "POST", url, LOC_BODY, body, userParams, token)
 }
 
 // ** DEPRECATED **
 // Please call "Do" on the http client returned by MakeHttpClient instead
 // (and set the "Content-Type" header explicitly in the http.Request)
-func (c *Consumer) PostJson(url string, body string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("POST", url, LOC_JSON, body, nil, token)
+func (c *Consumer) PostJson(ctx context.Context, url string, body string, token *AccessToken) (resp *http.Response, err error) {
+	return c.makeAuthorizedRequest(ctx, "POST", url, LOC_JSON, body, nil, token)
 }
 
 // ** DEPRECATED **
 // Please call "Do" on the http client returned by MakeHttpClient instead
 // (and set the "Content-Type" header explicitly in the http.Request)
-func (c *Consumer) PostXML(url string, body string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("POST", url, LOC_XML, body, nil, token)
+func (c *Consumer) PostXML(ctx context.Context, url string, body string, token *AccessToken) (resp *http.Response, err error) {
+	return c.makeAuthorizedRequest(ctx, "POST", url, LOC_XML, body, nil, token)
 }
 
 // ** DEPRECATED **
 // Please call "Do" on the http client returned by MakeHttpClient instead
 // (and setup the multipart data explicitly in the http.Request)
-func (c *Consumer) PostMultipart(url, multipartName string, multipartData io.ReadCloser, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequestReader("POST", url, LOC_MULTIPART, 0, multipartName, multipartData, userParams, token)
+func (c *Consumer) PostMultipart(ctx context.Context, url, multipartName string, multipartData io.ReadCloser, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+	return c.makeAuthorizedRequestReader(ctx, "POST", url, LOC_MULTIPART, 0, multipartName, multipartData, userParams, token)
 }
 
 // ** DEPRECATED **
 // Please call "Delete" on the http client returned by MakeHttpClient instead
-func (c *Consumer) Delete(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("DELETE", url, LOC_URL, "", userParams, token)
+func (c *Consumer) Delete(ctx context.Context, url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+	return c.makeAuthorizedRequest(ctx, "DELETE", url, LOC_URL, "", userParams, token)
 }
 
 // ** DEPRECATED **
 // Please call "Put" on the http client returned by MakeHttpClient instead
-func (c *Consumer) Put(url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequest("PUT", url, LOC_URL, body, userParams, token)
+func (c *Consumer) Put(ctx context.Context, url string, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+	return c.makeAuthorizedRequest(ctx, "PUT", url, LOC_URL, body, userParams, token)
 }
 
 func (c *Consumer) Debug(enabled bool) {
@@ -648,7 +649,7 @@ func (p pairs) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 // consumer.Post() etc), and the new API (which takes actual http.Requests)
 //
 // So, here we construct the appropriate HTTP request for the inputs.
-func (c *Consumer) makeAuthorizedRequestReader(method string, urlString string, dataLocation DataLocation, contentLength int, multipartName string, body io.ReadCloser, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+func (c *Consumer) makeAuthorizedRequestReader(ctx context.Context, method string, urlString string, dataLocation DataLocation, contentLength int, multipartName string, body io.ReadCloser, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
 	urlObject, err := url.Parse(urlString)
 	if err != nil {
 		return nil, err
@@ -661,6 +662,7 @@ func (c *Consumer) makeAuthorizedRequestReader(method string, urlString string, 
 		Body:          body,
 		ContentLength: int64(contentLength),
 	}
+	request = request.WithContext(ctx)
 
 	vals := url.Values{}
 	for k, v := range userParams {
@@ -941,8 +943,8 @@ func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, er
 	return resp, nil
 }
 
-func (c *Consumer) makeAuthorizedRequest(method string, url string, dataLocation DataLocation, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
-	return c.makeAuthorizedRequestReader(method, url, dataLocation, len(body), "", ioutil.NopCloser(strings.NewReader(body)), userParams, token)
+func (c *Consumer) makeAuthorizedRequest(ctx context.Context, method string, url string, dataLocation DataLocation, body string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
+	return c.makeAuthorizedRequestReader(ctx, method, url, dataLocation, len(body), "", ioutil.NopCloser(strings.NewReader(body)), userParams, token)
 }
 
 type request struct {
