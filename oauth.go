@@ -674,8 +674,12 @@ func (c *Consumer) makeAuthorizedRequestReader(method string, urlString string, 
 
 	} else {
 		// TODO(mrjones): validate that we're not overrideing an exising body?
-		request.Body = ioutil.NopCloser(strings.NewReader(vals.Encode()))
 		request.ContentLength = int64(len(vals.Encode()))
+		if request.ContentLength == 0 {
+			request.Body = http.NoBody
+		} else {
+			request.Body = ioutil.NopCloser(strings.NewReader(vals.Encode()))
+		}
 	}
 
 	for k, vs := range c.AdditionalHeaders {
