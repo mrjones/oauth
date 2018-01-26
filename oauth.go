@@ -142,7 +142,7 @@ type ServiceProvider struct {
 	// Allow parameters to be passed in the query string rather
 	// than the body.
 	// See https://github.com/mrjones/oauth/pull/63
-	SignQueryParams   bool
+	SignQueryParams bool
 }
 
 func (sp *ServiceProvider) httpMethod() string {
@@ -781,6 +781,33 @@ func canonicalizeUrl(u *url.URL) string {
 	return buf.String()
 }
 
+func getBody(request *http.Request) ([]byte, error) {
+	if request.Body == nil || request.Body == http.NoBody {
+		return nil, nil
+	}
+	if request.GetBody != nil {
+		bodyReader, err := request.GetBody()
+		if err != nil {
+			return nil, err
+		}
+		defer bodyReader.Close()
+		return ioutil.ReadAll(bodyReader)
+	}
+	defer request.Body.Close()
+	originalBody, err := ioutil.ReadAll(request.Body)
+	if err != nil {
+		return nil, err
+	}
+	// If there was no GetBody func, we have to re-install the body.
+	// (because we've ruined it by reading it).
+	// Set GetBody so that we don't have to repeat this process.
+	request.GetBody = func() (io.ReadCloser, error) {
+		return ioutil.NopCloser(bytes.NewReader(originalBody)), nil
+	}
+	request.Body, _ = request.GetBody()
+	return originalBody, nil
+}
+
 func parseBody(request *http.Request) (map[string]string, error) {
 	userParams := map[string]string{}
 
@@ -797,17 +824,12 @@ func parseBody(request *http.Request) (map[string]string, error) {
 		}
 	} else {
 		// x-www-form-urlencoded parameters come from the body instead:
-		defer request.Body.Close()
-		originalBody, err := ioutil.ReadAll(request.Body)
+		body, err := getBody(request)
 		if err != nil {
 			return nil, err
 		}
 
-		// If there was a body, we have to re-install it
-		// (because we've ruined it by reading it).
-		request.Body = ioutil.NopCloser(bytes.NewReader(originalBody))
-
-		params, err := url.ParseQuery(string(originalBody))
+		params, err := url.ParseQuery(string(body))
 		if err != nil {
 			return nil, err
 		}
@@ -843,24 +865,18 @@ func calculateBodyHash(request *http.Request, s signer) (string, error) {
 		return "", nil
 	}
 
-	var originalBody []byte
+	var body []byte
 
 	if request.Body != nil {
 		var err error
-
-		defer request.Body.Close()
-		originalBody, err = ioutil.ReadAll(request.Body)
+		body, err = getBody(request)
 		if err != nil {
 			return "", err
 		}
-
-		// If there was a body, we have to re-install it
-		// (because we've ruined it by reading it).
-		request.Body = ioutil.NopCloser(bytes.NewReader(originalBody))
 	}
 
 	h := s.HashFunc().New()
-	h.Write(originalBody)
+	h.Write(body)
 	rawSignature := h.Sum(nil)
 
 	return base64.StdEncoding.EncodeToString(rawSignature), nil
