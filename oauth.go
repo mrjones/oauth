@@ -676,7 +676,7 @@ func (c *Consumer) makeAuthorizedRequestReader(method string, urlString string, 
 		// TODO(mrjones): validate that we're not overrideing an exising body?
 		request.ContentLength = int64(len(vals.Encode()))
 		if request.ContentLength == 0 {
-			request.Body = http.NoBody
+			request.Body = nil
 		} else {
 			request.Body = ioutil.NopCloser(strings.NewReader(vals.Encode()))
 		}
@@ -786,29 +786,21 @@ func canonicalizeUrl(u *url.URL) string {
 }
 
 func getBody(request *http.Request) ([]byte, error) {
-	if request.Body == nil || request.Body == http.NoBody {
+	if request.Body == nil {
 		return nil, nil
-	}
-	if request.GetBody != nil {
-		bodyReader, err := request.GetBody()
-		if err != nil {
-			return nil, err
-		}
-		defer bodyReader.Close()
-		return ioutil.ReadAll(bodyReader)
 	}
 	defer request.Body.Close()
 	originalBody, err := ioutil.ReadAll(request.Body)
 	if err != nil {
 		return nil, err
 	}
-	// If there was no GetBody func, we have to re-install the body.
-	// (because we've ruined it by reading it).
-	// Set GetBody so that we don't have to repeat this process.
-	request.GetBody = func() (io.ReadCloser, error) {
-		return ioutil.NopCloser(bytes.NewReader(originalBody)), nil
+
+	// We have to re-install the body (because we've ruined it by reading it).
+	if len(originalBody) > 0 {
+		request.Body = ioutil.NopCloser(bytes.NewReader(originalBody))
+	} else {
+		request.Body = nil
 	}
-	request.Body, _ = request.GetBody()
 	return originalBody, nil
 }
 
