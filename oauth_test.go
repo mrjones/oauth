@@ -1040,6 +1040,52 @@ func TestBodyHashStandard(t *testing.T) {
 
 }
 
+func TestParseBodyNonDestructive(t *testing.T) {
+	// copied from unexported http.Request.outgoingLength()
+	// https://github.com/golang/go/blob/release-branch.go1.8/src/net/http/request.go#L1311
+	outgoingLength := func(r *http.Request) int64 {
+		if r.Body == nil || r.Body == http.NoBody {
+			return 0
+		}
+		if r.ContentLength != 0 {
+			return r.ContentLength
+		}
+		return -1
+	}
+	const assertMsg = "Unexpected change in http.Request Body"
+
+	req, err := http.NewRequest("POST", "http://www.mrjon.es/someurl", strings.NewReader(`foo=123`))
+	assertEq(t, nil, err)
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	len := outgoingLength(req)
+	_, err = parseBody(req)
+	assertEq(t, nil, err)
+	assertEqM(t, len, outgoingLength(req), assertMsg)
+
+	req, err = http.NewRequest("POST", "http://www.mrjon.es/someurl", strings.NewReader(""))
+	assertEq(t, nil, err)
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	len = outgoingLength(req)
+	_, err = parseBody(req)
+	assertEq(t, nil, err)
+	assertEqM(t, len, outgoingLength(req), assertMsg)
+
+	req, err = http.NewRequest("GET", "http://www.mrjon.es/someurl?foo=123", nil)
+	assertEq(t, nil, err)
+	len = outgoingLength(req)
+	_, err = parseBody(req)
+	assertEq(t, nil, err)
+	assertEqM(t, len, outgoingLength(req), assertMsg)
+
+	req, err = http.NewRequest("GET", "http://www.mrjon.es/someurl", nil)
+	assertEq(t, nil, err)
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	len = outgoingLength(req)
+	_, err = parseBody(req)
+	assertEq(t, nil, err)
+	assertEqM(t, len, outgoingLength(req), assertMsg)
+}
+
 func basicConsumer() *Consumer {
 	return NewConsumer(
 		"consumerkey",
