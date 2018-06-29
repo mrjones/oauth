@@ -192,6 +192,36 @@ func TestSuccessfulTokenAuthorization(t *testing.T) {
 	assertEq(t, "consumersecret&RSECRET", m.signer.UsedKey)
 }
 
+func TestSuccessfulTokenAuthorizationWithoutVerifier(t *testing.T) {
+	c := basicConsumer()
+	m := newMocks(t)
+	m.install(c)
+
+	m.httpClient.ExpectGet(
+		"http://www.mrjon.es/accesstoken",
+		map[string]string{
+			"oauth_consumer_key":     "consumerkey",
+			"oauth_nonce":            "2",
+			"oauth_signature":        "MOCK_SIGNATURE",
+			"oauth_signature_method": "HMAC-SHA1",
+			"oauth_timestamp":        "1",
+			"oauth_token":            "RTOKEN",
+			"oauth_version":          "1.0",
+		},
+		"oauth_token=ATOKEN&oauth_token_secret=ATOKEN_SECRET&oauth_session_handle=SESSION_HANDLE")
+
+	rtoken := &RequestToken{Token: "RTOKEN", Secret: "RSECRET"}
+	atoken, err := c.AuthorizeToken(rtoken, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertEq(t, "ATOKEN", atoken.Token)
+	assertEq(t, "ATOKEN_SECRET", atoken.Secret)
+	assertEq(t, "SESSION_HANDLE", atoken.AdditionalData["oauth_session_handle"])
+	assertEq(t, "consumersecret&RSECRET", m.signer.UsedKey)
+}
+
 func TestSuccessfulTokenRefresh(t *testing.T) {
 	c := basicConsumer()
 	m := newMocks(t)

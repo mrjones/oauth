@@ -451,8 +451,10 @@ func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string)
 
 func (c *Consumer) AuthorizeTokenWithParams(rtoken *RequestToken, verificationCode string, additionalParams map[string]string) (atoken *AccessToken, err error) {
 	params := map[string]string{
-		VERIFIER_PARAM: verificationCode,
-		TOKEN_PARAM:    rtoken.Token,
+		TOKEN_PARAM: rtoken.Token,
+	}
+	if verificationCode != "" {
+		params[VERIFIER_PARAM] = verificationCode
 	}
 	return c.makeAccessTokenRequestWithParams(params, rtoken.Secret, additionalParams)
 }
