@@ -1241,7 +1241,7 @@ func (c *Consumer) requestString(method string, url string, params *OrderedParam
 func (c *Consumer) getBody(method, url string, oauthParams *OrderedParams) (*string, error) {
 	resp, err := c.httpExecute(method, url, "", 0, nil, oauthParams)
 	if err != nil {
-		return nil, errors.New("httpExecute: " + err.Error())
+		return nil, err
 	}
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
