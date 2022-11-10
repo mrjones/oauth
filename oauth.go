@@ -207,6 +207,8 @@ type Consumer struct {
 	// will only *add* headers, not set existing ones.
 	AdditionalHeaders map[string][]string
 
+	Realm string
+
 	// Private seams for mocking dependencies when testing
 	clock clock
 	// Seeded generators are not reentrant
@@ -925,9 +927,12 @@ func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, er
 
 	// Set auth header.
 	oauthHdr := OAUTH_HEADER
+	if rt.consumer.Realm != "" {
+		oauthHdr += "realm=\"" + rt.consumer.Realm + "\""
+	}
 	for pos, key := range authParams.Keys() {
 		for innerPos, value := range authParams.Get(key) {
-			if pos+innerPos > 0 {
+			if pos+innerPos > 0 || rt.consumer.Realm != "" {
 				oauthHdr += ","
 			}
 			oauthHdr += key + "=\"" + value + "\""
@@ -1281,9 +1286,12 @@ func (c *Consumer) httpExecute(
 	// Set auth header.
 	req.Header = http.Header{}
 	oauthHdr := "OAuth "
+	if c.Realm != "" {
+		oauthHdr += "realm=\"" + c.Realm + "\""
+	}
 	for pos, key := range oauthParams.Keys() {
 		for innerPos, value := range oauthParams.Get(key) {
-			if pos+innerPos > 0 {
+			if pos+innerPos > 0 || c.Realm != "" {
 				oauthHdr += ","
 			}
 			oauthHdr += key + "=\"" + value + "\""
