@@ -74,7 +74,7 @@ func main() {
 	c.Debug(true)
 
 	t := oauth.AccessToken{
-		Token: *accessToken,
+		Token:  *accessToken,
 		Secret: *accessTokenSecret,
 	}
 
