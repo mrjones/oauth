@@ -1,5 +1,6 @@
 // NOTE: Netflix shut down its API in 2014.
-//       This code no longer works.
+//
+//	This code no longer works.
 //
 // go run examples/netflix/netflix.go --consumerkey <key> --consumersecret <secret> --appname <appname>
 package main

@@ -2,38 +2,40 @@
 // See http://www.oauth.net and RFC 5849
 //
 // There are typically three parties involved in an OAuth exchange:
-//      (1) The "Service Provider" (e.g. Google, Twitter, NetFlix) who operates the
-//          service where the data resides.
-//      (2) The "End User" who owns that data, and wants to grant access to a third-party.
-//      (3) That third-party who wants access to the data (after first being authorized by
-//          the user). This third-party is referred to as the "Consumer" in OAuth
-//          terminology.
+//
+//	(1) The "Service Provider" (e.g. Google, Twitter, NetFlix) who operates the
+//	    service where the data resides.
+//	(2) The "End User" who owns that data, and wants to grant access to a third-party.
+//	(3) That third-party who wants access to the data (after first being authorized by
+//	    the user). This third-party is referred to as the "Consumer" in OAuth
+//	    terminology.
 //
 // This library is designed to help implement the third-party consumer by handling the
 // low-level authentication tasks, and allowing for authenticated requests to the
 // service provider on behalf of the user.
 //
 // Caveats:
-//      - Currently only supports HMAC and RSA signatures.
-//      - Currently only supports SHA1 and SHA256 hashes.
-//      - Currently only supports OAuth 1.0
+//   - Currently only supports HMAC and RSA signatures.
+//   - Currently only supports SHA1 and SHA256 hashes.
+//   - Currently only supports OAuth 1.0
 //
 // Overview of how to use this library:
-//      (1) First create a new Consumer instance with the NewConsumer function
-//      (2) Get a RequestToken, and "authorization url" from GetRequestTokenAndUrl()
-//      (3) Save the RequestToken, you will need it again in step 6.
-//      (4) Redirect the user to the "authorization url" from step 2, where they will
-//          authorize your access to the service provider.
-//      (5) Wait. You will be called back on the CallbackUrl that you provide, and you
-//          will recieve a "verification code".
-//      (6) Call AuthorizeToken() with the RequestToken from step 2 and the
-//          "verification code" from step 5.
-//      (7) You will get back an AccessToken.  Save this for as long as you need access
-//          to the user's data, and treat it like a password; it is a secret.
-//      (8) You can now throw away the RequestToken from step 2, it is no longer
-//          necessary.
-//      (9) Call "MakeHttpClient" using the AccessToken from step 7 to get an
-//          HTTP client which can access protected resources.
+//
+//	(1) First create a new Consumer instance with the NewConsumer function
+//	(2) Get a RequestToken, and "authorization url" from GetRequestTokenAndUrl()
+//	(3) Save the RequestToken, you will need it again in step 6.
+//	(4) Redirect the user to the "authorization url" from step 2, where they will
+//	    authorize your access to the service provider.
+//	(5) Wait. You will be called back on the CallbackUrl that you provide, and you
+//	    will recieve a "verification code".
+//	(6) Call AuthorizeToken() with the RequestToken from step 2 and the
+//	    "verification code" from step 5.
+//	(7) You will get back an AccessToken.  Save this for as long as you need access
+//	    to the user's data, and treat it like a password; it is a secret.
+//	(8) You can now throw away the RequestToken from step 2, it is no longer
+//	    necessary.
+//	(9) Call "MakeHttpClient" using the AccessToken from step 7 to get an
+//	    HTTP client which can access protected resources.
 package oauth
 
 import (
@@ -111,23 +113,25 @@ const (
 // You usually find all of these URLs by reading the documentation for the service
 // that you're trying to connect to.
 // Some common examples are:
-//      (1) Google, standard APIs:
-//          http://code.google.com/apis/accounts/docs/OAuth_ref.html
-//          - RequestTokenUrl:   https://www.google.com/accounts/OAuthGetRequestToken
-//          - AuthorizeTokenUrl: https://www.google.com/accounts/OAuthAuthorizeToken
-//          - AccessTokenUrl:    https://www.google.com/accounts/OAuthGetAccessToken
-//          Note: Some Google APIs (for example, Google Latitude) use different values for
-//          one or more of those URLs.
-//      (2) Twitter API:
-//          http://dev.twitter.com/pages/auth
-//          - RequestTokenUrl:   http://api.twitter.com/oauth/request_token
-//          - AuthorizeTokenUrl: https://api.twitter.com/oauth/authorize
-//          - AccessTokenUrl:    https://api.twitter.com/oauth/access_token
-//      (3) NetFlix API:
-//          http://developer.netflix.com/docs/Security
-//          - RequestTokenUrl:   http://api.netflix.com/oauth/request_token
-//          - AuthroizeTokenUrl: https://api-user.netflix.com/oauth/login
-//          - AccessTokenUrl:    http://api.netflix.com/oauth/access_token
+//
+//	(1) Google, standard APIs:
+//	    http://code.google.com/apis/accounts/docs/OAuth_ref.html
+//	    - RequestTokenUrl:   https://www.google.com/accounts/OAuthGetRequestToken
+//	    - AuthorizeTokenUrl: https://www.google.com/accounts/OAuthAuthorizeToken
+//	    - AccessTokenUrl:    https://www.google.com/accounts/OAuthGetAccessToken
+//	    Note: Some Google APIs (for example, Google Latitude) use different values for
+//	    one or more of those URLs.
+//	(2) Twitter API:
+//	    http://dev.twitter.com/pages/auth
+//	    - RequestTokenUrl:   http://api.twitter.com/oauth/request_token
+//	    - AuthorizeTokenUrl: https://api.twitter.com/oauth/authorize
+//	    - AccessTokenUrl:    https://api.twitter.com/oauth/access_token
+//	(3) NetFlix API:
+//	    http://developer.netflix.com/docs/Security
+//	    - RequestTokenUrl:   http://api.netflix.com/oauth/request_token
+//	    - AuthroizeTokenUrl: https://api-user.netflix.com/oauth/login
+//	    - AccessTokenUrl:    http://api.netflix.com/oauth/access_token
+//
 // Set HttpMethod if the service provider requires a different HTTP method
 // to be used for OAuth token requests
 type ServiceProvider struct {
@@ -207,6 +211,8 @@ type Consumer struct {
 	// will only *add* headers, not set existing ones.
 	AdditionalHeaders map[string][]string
 
+	Realm string
+
 	// Private seams for mocking dependencies when testing
 	clock clock
 	// Seeded generators are not reentrant
@@ -232,13 +238,13 @@ func newConsumer(consumerKey string, serviceProvider ServiceProvider, httpClient
 }
 
 // Creates a new Consumer instance, with a HMAC-SHA1 signer
-//      - consumerKey and consumerSecret:
-//        values you should obtain from the ServiceProvider when you register your
-//        application.
 //
-//      - serviceProvider:
-//        see the documentation for ServiceProvider for how to create this.
+//   - consumerKey and consumerSecret:
+//     values you should obtain from the ServiceProvider when you register your
+//     application.
 //
+//   - serviceProvider:
+//     see the documentation for ServiceProvider for how to create this.
 func NewConsumer(consumerKey string, consumerSecret string,
 	serviceProvider ServiceProvider) *Consumer {
 	consumer := newConsumer(consumerKey, serviceProvider, nil)
@@ -252,18 +258,18 @@ func NewConsumer(consumerKey string, consumerSecret string,
 }
 
 // Creates a new Consumer instance, with a HMAC-SHA1 signer
-//      - consumerKey and consumerSecret:
-//        values you should obtain from the ServiceProvider when you register your
-//        application.
 //
-//      - serviceProvider:
-//        see the documentation for ServiceProvider for how to create this.
+//   - consumerKey and consumerSecret:
+//     values you should obtain from the ServiceProvider when you register your
+//     application.
 //
-//		- httpClient:
-//		  Provides a custom implementation of the httpClient used under the hood
-//		  to make the request.  This is especially useful if you want to use
-//		  Google App Engine.
+//   - serviceProvider:
+//     see the documentation for ServiceProvider for how to create this.
 //
+//   - httpClient:
+//     Provides a custom implementation of the httpClient used under the hood
+//     to make the request.  This is especially useful if you want to use
+//     Google App Engine.
 func NewCustomHttpClientConsumer(consumerKey string, consumerSecret string,
 	serviceProvider ServiceProvider, httpClient *http.Client) *Consumer {
 	consumer := newConsumer(consumerKey, serviceProvider, httpClient)
@@ -277,21 +283,21 @@ func NewCustomHttpClientConsumer(consumerKey string, consumerSecret string,
 }
 
 // Creates a new Consumer instance, with a HMAC signer
-//      - consumerKey and consumerSecret:
-//        values you should obtain from the ServiceProvider when you register your
-//        application.
 //
-//      - hashFunc:
-//        the crypto.Hash to use for signatures
+//   - consumerKey and consumerSecret:
+//     values you should obtain from the ServiceProvider when you register your
+//     application.
 //
-//      - serviceProvider:
-//        see the documentation for ServiceProvider for how to create this.
+//   - hashFunc:
+//     the crypto.Hash to use for signatures
 //
-//      - httpClient:
-//        Provides a custom implementation of the httpClient used under the hood
-//        to make the request.  This is especially useful if you want to use
-//        Google App Engine. Can be nil for default.
+//   - serviceProvider:
+//     see the documentation for ServiceProvider for how to create this.
 //
+//   - httpClient:
+//     Provides a custom implementation of the httpClient used under the hood
+//     to make the request.  This is especially useful if you want to use
+//     Google App Engine. Can be nil for default.
 func NewCustomConsumer(consumerKey string, consumerSecret string,
 	hashFunc crypto.Hash, serviceProvider ServiceProvider,
 	httpClient *http.Client) *Consumer {
@@ -306,16 +312,16 @@ func NewCustomConsumer(consumerKey string, consumerSecret string,
 }
 
 // Creates a new Consumer instance, with a RSA-SHA1 signer
-//      - consumerKey:
-//        value you should obtain from the ServiceProvider when you register your
-//        application.
 //
-//      - privateKey:
-//        the private key to use for signatures
+//   - consumerKey:
+//     value you should obtain from the ServiceProvider when you register your
+//     application.
 //
-//      - serviceProvider:
-//        see the documentation for ServiceProvider for how to create this.
+//   - privateKey:
+//     the private key to use for signatures
 //
+//   - serviceProvider:
+//     see the documentation for ServiceProvider for how to create this.
 func NewRSAConsumer(consumerKey string, privateKey *rsa.PrivateKey,
 	serviceProvider ServiceProvider) *Consumer {
 	consumer := newConsumer(consumerKey, serviceProvider, nil)
@@ -330,24 +336,24 @@ func NewRSAConsumer(consumerKey string, privateKey *rsa.PrivateKey,
 }
 
 // Creates a new Consumer instance, with a RSA signer
-//      - consumerKey:
-//        value you should obtain from the ServiceProvider when you register your
-//        application.
 //
-//      - privateKey:
-//        the private key to use for signatures
+//   - consumerKey:
+//     value you should obtain from the ServiceProvider when you register your
+//     application.
 //
-//      - hashFunc:
-//        the crypto.Hash to use for signatures
+//   - privateKey:
+//     the private key to use for signatures
 //
-//      - serviceProvider:
-//        see the documentation for ServiceProvider for how to create this.
+//   - hashFunc:
+//     the crypto.Hash to use for signatures
 //
-//      - httpClient:
-//        Provides a custom implementation of the httpClient used under the hood
-//        to make the request.  This is especially useful if you want to use
-//        Google App Engine. Can be nil for default.
+//   - serviceProvider:
+//     see the documentation for ServiceProvider for how to create this.
 //
+//   - httpClient:
+//     Provides a custom implementation of the httpClient used under the hood
+//     to make the request.  This is especially useful if you want to use
+//     Google App Engine. Can be nil for default.
 func NewCustomRSAConsumer(consumerKey string, privateKey *rsa.PrivateKey,
 	hashFunc crypto.Hash, serviceProvider ServiceProvider,
 	httpClient *http.Client) *Consumer {
@@ -363,31 +369,32 @@ func NewCustomRSAConsumer(consumerKey string, privateKey *rsa.PrivateKey,
 }
 
 // Kicks off the OAuth authorization process.
-//      - callbackUrl:
-//        Authorizing a token *requires* redirecting to the service provider. This is the
-//        URL which the service provider will redirect the user back to after that
-//        authorization is completed. The service provider will pass back a verification
-//        code which is necessary to complete the rest of the process (in AuthorizeToken).
-//        Notes on callbackUrl:
-//          - Some (all?) service providers allow for setting "oob" (for out-of-band) as a
-//            callback url.  If this is set the service provider will present the
-//            verification code directly to the user, and you must provide a place for
-//            them to copy-and-paste it into.
-//          - Otherwise, the user will be redirected to callbackUrl in the browser, and
-//            will append a "oauth_verifier=<verifier>" parameter.
+//   - callbackUrl:
+//     Authorizing a token *requires* redirecting to the service provider. This is the
+//     URL which the service provider will redirect the user back to after that
+//     authorization is completed. The service provider will pass back a verification
+//     code which is necessary to complete the rest of the process (in AuthorizeToken).
+//     Notes on callbackUrl:
+//   - Some (all?) service providers allow for setting "oob" (for out-of-band) as a
+//     callback url.  If this is set the service provider will present the
+//     verification code directly to the user, and you must provide a place for
+//     them to copy-and-paste it into.
+//   - Otherwise, the user will be redirected to callbackUrl in the browser, and
+//     will append a "oauth_verifier=<verifier>" parameter.
 //
 // This function returns:
-//      - rtoken:
-//        A temporary RequestToken, used during the authorization process. You must save
-//        this since it will be necessary later in the process when calling
-//        AuthorizeToken().
 //
-//      - url:
-//        A URL that you should redirect the user to in order that they may authorize you
-//        to the service provider.
+//   - rtoken:
+//     A temporary RequestToken, used during the authorization process. You must save
+//     this since it will be necessary later in the process when calling
+//     AuthorizeToken().
 //
-//      - err:
-//        Set only if there was an error, nil otherwise.
+//   - url:
+//     A URL that you should redirect the user to in order that they may authorize you
+//     to the service provider.
+//
+//   - err:
+//     Set only if there was an error, nil otherwise.
 func (c *Consumer) GetRequestTokenAndUrl(callbackUrl string) (rtoken *RequestToken, loginUrl string, err error) {
 	return c.GetRequestTokenAndUrlWithParams(callbackUrl, c.AdditionalParams)
 }
@@ -430,21 +437,23 @@ func (c *Consumer) GetRequestTokenAndUrlWithParams(callbackUrl string, additiona
 
 // After the user has authorized you to the service provider, use this method to turn
 // your temporary RequestToken into a permanent AccessToken. You must pass in two values:
-//      - rtoken:
-//        The RequestToken returned from GetRequestTokenAndUrl()
 //
-//      - verificationCode:
-//        The string which passed back from the server, either as the oauth_verifier
-//        query param appended to callbackUrl *OR* a string manually entered by the user
-//        if callbackUrl is "oob"
+//   - rtoken:
+//     The RequestToken returned from GetRequestTokenAndUrl()
+//
+//   - verificationCode:
+//     The string which passed back from the server, either as the oauth_verifier
+//     query param appended to callbackUrl *OR* a string manually entered by the user
+//     if callbackUrl is "oob"
 //
 // It will return:
-//      - atoken:
-//        A permanent AccessToken which can be used to access the user's data (until it is
-//        revoked by the user or the service provider).
 //
-//      - err:
-//        Set only if there was an error, nil otherwise.
+//   - atoken:
+//     A permanent AccessToken which can be used to access the user's data (until it is
+//     revoked by the user or the service provider).
+//
+//   - err:
+//     Set only if there was an error, nil otherwise.
 func (c *Consumer) AuthorizeToken(rtoken *RequestToken, verificationCode string) (atoken *AccessToken, err error) {
 	return c.AuthorizeTokenWithParams(rtoken, verificationCode, c.AdditionalParams)
 }
@@ -468,17 +477,18 @@ func (c *Consumer) AuthorizeTokenWithParams(rtoken *RequestToken, verificationCo
 //
 // See http://oauth.googlecode.com/svn/spec/ext/session/1.0/drafts/1/spec.html
 // for more information.
-//      - accessToken:
-//        The AccessToken returned from AuthorizeToken()
+//   - accessToken:
+//     The AccessToken returned from AuthorizeToken()
 //
 // It will return:
-//      - atoken:
-//        An AccessToken which can be used to access the user's data (until it is
-//        revoked by the user or the service provider).
 //
-//      - err:
-//        Set if accessToken does not contain the SESSION_HANDLE_PARAM needed to
-//        refresh the token, or if an error occurred when making the request.
+//   - atoken:
+//     An AccessToken which can be used to access the user's data (until it is
+//     revoked by the user or the service provider).
+//
+//   - err:
+//     Set if accessToken does not contain the SESSION_HANDLE_PARAM needed to
+//     refresh the token, or if an error occurred when making the request.
 func (c *Consumer) RefreshToken(accessToken *AccessToken) (atoken *AccessToken, err error) {
 	params := make(map[string]string)
 	sessionHandle, ok := accessToken.AdditionalData[SESSION_HANDLE_PARAM]
@@ -492,19 +502,21 @@ func (c *Consumer) RefreshToken(accessToken *AccessToken) (atoken *AccessToken, 
 }
 
 // Use the service provider to obtain an AccessToken for a given session
-//      - params:
-//        The access token request paramters.
 //
-//      - secret:
-//        Secret key to use when signing the access token request.
+//   - params:
+//     The access token request paramters.
+//
+//   - secret:
+//     Secret key to use when signing the access token request.
 //
 // It will return:
-//      - atoken
-//        An AccessToken which can be used to access the user's data (until it is
-//        revoked by the user or the service provider).
 //
-//      - err:
-//        Set only if there was an error, nil otherwise.
+//   - atoken
+//     An AccessToken which can be used to access the user's data (until it is
+//     revoked by the user or the service provider).
+//
+//   - err:
+//     Set only if there was an error, nil otherwise.
 func (c *Consumer) makeAccessTokenRequest(params map[string]string, secret string) (atoken *AccessToken, err error) {
 	return c.makeAccessTokenRequestWithParams(params, secret, c.AdditionalParams)
 }
@@ -551,21 +563,23 @@ func (c *Consumer) MakeHttpClient(token *AccessToken) (*http.Client, error) {
 // Please call Get on the http client returned by MakeHttpClient instead!
 //
 // Executes an HTTP Get, authorized via the AccessToken.
-//      - url:
-//        The base url, without any query params, which is being accessed
 //
-//      - userParams:
-//        Any key=value params to be included in the query string
+//   - url:
+//     The base url, without any query params, which is being accessed
 //
-//      - token:
-//        The AccessToken returned by AuthorizeToken()
+//   - userParams:
+//     Any key=value params to be included in the query string
+//
+//   - token:
+//     The AccessToken returned by AuthorizeToken()
 //
 // This method returns:
-//      - resp:
-//        The HTTP Response resulting from making this request.
 //
-//      - err:
-//        Set only if there was an error, nil otherwise.
+//   - resp:
+//     The HTTP Response resulting from making this request.
+//
+//   - err:
+//     Set only if there was an error, nil otherwise.
 func (c *Consumer) Get(url string, userParams map[string]string, token *AccessToken) (resp *http.Response, err error) {
 	return c.makeAuthorizedRequest("GET", url, LOC_URL, "", userParams, token)
 }
@@ -925,9 +939,12 @@ func (rt *RoundTripper) RoundTrip(userRequest *http.Request) (*http.Response, er
 
 	// Set auth header.
 	oauthHdr := OAUTH_HEADER
+	if rt.consumer.Realm != "" {
+		oauthHdr += "realm=\"" + rt.consumer.Realm + "\""
+	}
 	for pos, key := range authParams.Keys() {
 		for innerPos, value := range authParams.Get(key) {
-			if pos+innerPos > 0 {
+			if pos+innerPos > 0 || rt.consumer.Realm != "" {
 				oauthHdr += ","
 			}
 			oauthHdr += key + "=\"" + value + "\""
@@ -1007,15 +1024,16 @@ func (c *Consumer) signRequest(req *request, tokenSecret string) (*request, erro
 }
 
 // Obtains an AccessToken from the response of a service provider.
-//      - data:
-//        The response body.
+//   - data:
+//     The response body.
 //
 // This method returns:
-//      - atoken:
-//        The AccessToken generated from the response body.
 //
-//      - err:
-//        Set if an AccessToken could not be parsed from the given input.
+//   - atoken:
+//     The AccessToken generated from the response body.
+//
+//   - err:
+//     Set if an AccessToken could not be parsed from the given input.
 func parseAccessToken(data string) (atoken *AccessToken, err error) {
 	parts, err := url.ParseQuery(data)
 	if err != nil {
@@ -1281,9 +1299,12 @@ func (c *Consumer) httpExecute(
 	// Set auth header.
 	req.Header = http.Header{}
 	oauthHdr := "OAuth "
+	if c.Realm != "" {
+		oauthHdr += "realm=\"" + c.Realm + "\""
+	}
 	for pos, key := range oauthParams.Keys() {
 		for innerPos, value := range oauthParams.Get(key) {
-			if pos+innerPos > 0 {
+			if pos+innerPos > 0 || c.Realm != "" {
 				oauthHdr += ","
 			}
 			oauthHdr += key + "=\"" + value + "\""
